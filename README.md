@@ -1,4 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fercullen Irish Whiskey RSVP App
+
+A sophisticated RSVP management system for the Fercullen Irish Whiskey launch event in Nigeria. Built with Next.js, TypeScript, and SQLite.
+
+## Event Details
+- **Date**: October 18, 2025
+- **Time**: 5:00 PM WAT
+- **Venue**: Monarch Event Center, 138 Lekki - Epe Expressway, Lekki Peninsula II, Lekki 106104, Lagos, Nigeria
+
+## Features
+
+### Admin Dashboard
+- **Invitee Management**: Add/edit invitees with unique SN, name, title, company, email, phone, and notes
+- **Email Invitations**: Send HTML email invites via Nodemailer with QR codes
+- **Bulk Operations**: CSV template download and bulk invitee upload
+- **QR Code Generation**: Generate and download PNG QR codes for each invitee
+- **RSVP Tracking**: View responses, stats, and check-in guests on event day
+- **Invitation Tracking**: Monitor sent invitations
+
+### Invitee Experience
+- **RSVP Access**: Via QR code scan or direct link (/rsvp/{invitee_sn})
+- **Response Form**: Fill preferences and notes
+- **Email Integration**: Receive invitation emails with embedded QR codes
+
+## Technology Stack
+- **Frontend**: Next.js 15.5.0, React 19, TypeScript
+- **Database**: SQLite
+- **Email**: Nodemailer
+- **QR Codes**: QR code generation library
+- **Styling**: CSS with brand colors (#01315c, #bc9254, #f9d8a4)
+
+## Brand
+**Fercullen Irish Whiskey** - Premium Irish whiskey launching in Nigeria
 
 ## Getting Started
 
