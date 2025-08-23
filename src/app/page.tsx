@@ -123,15 +123,20 @@ export default function Home() {
             
             <div style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(4, 1fr)',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
               gap: '16px',
-              marginBottom: '24px'
+              marginBottom: '24px',
+              justifyItems: 'center',
+              alignItems: 'center'
             }}>
               <div style={{
                 backgroundColor: 'var(--surface)',
                 borderRadius: '12px',
-                padding: '16px 8px',
-                border: '1px solid var(--border)'
+                padding: '12px 6px',
+                border: '1px solid var(--border)',
+                minWidth: '70px',
+                width: '100%',
+                textAlign: 'center'
               }}>
                 <div style={{
                   fontSize: '28px',
@@ -154,8 +159,11 @@ export default function Home() {
               <div style={{
                 backgroundColor: 'var(--surface)',
                 borderRadius: '12px',
-                padding: '16px 8px',
-                border: '1px solid var(--border)'
+                padding: '12px 6px',
+                border: '1px solid var(--border)',
+                minWidth: '70px',
+                width: '100%',
+                textAlign: 'center'
               }}>
                 <div style={{
                   fontSize: '28px',
@@ -178,8 +186,11 @@ export default function Home() {
               <div style={{
                 backgroundColor: 'var(--surface)',
                 borderRadius: '12px',
-                padding: '16px 8px',
-                border: '1px solid var(--border)'
+                padding: '12px 6px',
+                border: '1px solid var(--border)',
+                minWidth: '70px',
+                width: '100%',
+                textAlign: 'center'
               }}>
                 <div style={{
                   fontSize: '28px',
@@ -202,8 +213,11 @@ export default function Home() {
               <div style={{
                 backgroundColor: 'var(--surface)',
                 borderRadius: '12px',
-                padding: '16px 8px',
-                border: '1px solid var(--border)'
+                padding: '12px 6px',
+                border: '1px solid var(--border)',
+                minWidth: '70px',
+                width: '100%',
+                textAlign: 'center'
               }}>
                 <div style={{
                   fontSize: '28px',
