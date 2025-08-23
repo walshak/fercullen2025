@@ -23,14 +23,23 @@ const transporter = nodemailer.createTransport({
 // Generate QR Code as base64 data URL
 export async function generateQRCode(text: string): Promise<string> {
   try {
+    console.log('Generating QR code for text:', text);
     const qrCodeDataURL = await QRCode.toDataURL(text, {
       width: 300,
       margin: 2,
       color: {
         dark: '#01315c',
         light: '#ffffff'
-      }
+      },
+      errorCorrectionLevel: 'M'
     });
+    
+    // Verify the data URL is properly formatted
+    if (!qrCodeDataURL || !qrCodeDataURL.startsWith('data:image/')) {
+      throw new Error('Invalid QR code data URL generated');
+    }
+    
+    console.log('QR code generated successfully:', qrCodeDataURL.substring(0, 100) + '...');
     return qrCodeDataURL;
   } catch (error) {
     console.error('Error generating QR code:', error);
@@ -269,7 +278,7 @@ function generateInvitationHTML(invitee: { sn: string; name: string; email: stri
               Present this QR code at the venue for quick check-in
             </p>
             <div class="qr-code">
-              <img src="${qrCodeDataURL}" alt="Event QR Code" style="width: 200px; height: 200px;" />
+              <img src="${qrCodeDataURL}" alt="Event QR Code" style="width: 300px; height: 300px; display: block; margin: 0 auto;" />
             </div>
             <p style="font-size: 12px; color: #8a8e91; margin-top: 15px;">
               Serial Number: <strong style="color: #f9d8a4;">${invitee.sn}</strong>
@@ -339,7 +348,10 @@ export async function sendInvitationEmail(
     }
 
     // Generate QR code
+    console.log(`Generating QR code for ${invitee.sn} with URL: ${baseUrl}/rsvp/${invitee.sn}`);
     const qrCodeDataURL = await generateQRCode(`${baseUrl}/rsvp/${invitee.sn}`);
+    console.log(`QR code generated successfully, data URL length: ${qrCodeDataURL.length}`);
+    console.log(`QR code starts with: ${qrCodeDataURL.substring(0, 50)}...`);
     
     // Generate HTML content
     const htmlContent = generateInvitationHTML(invitee, qrCodeDataURL, baseUrl);
