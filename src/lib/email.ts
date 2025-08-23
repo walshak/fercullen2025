@@ -273,15 +273,10 @@ function generateInvitationHTML(invitee: { sn: string; name: string; email: stri
           </div>
           
           <div class="qr-section">
-            <h3>🎟️ Your Personal QR Code</h3>
+            <h3>🎟️ Your Personal Invite Code is :</h3>
+            <h1><ul> ${invitee.sn} </ul></h1>
             <p style="color: #d0d4d7; margin-bottom: 15px;">
-              Present this QR code at the venue for quick check-in
-            </p>
-            <div class="qr-code">
-              <img src="${qrCodeDataURL}" alt="Event QR Code" style="width: 300px; height: 300px; display: block; margin: 0 auto;" />
-            </div>
-            <p style="font-size: 12px; color: #8a8e91; margin-top: 15px;">
-              Serial Number: <strong style="color: #f9d8a4;">${invitee.sn}</strong>
+              Present this code at the venue for quick check-in
             </p>
           </div>
           
