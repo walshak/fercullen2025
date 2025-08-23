@@ -66,13 +66,21 @@ class MongoDatabase {
 
     this.client = new MongoClient(uri, {
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 45000,
+      connectTimeoutMS: 30000,
     });
 
-    await this.client.connect();
-    this.db = this.client.db('fercullen2025');
-    console.log('Connected to MongoDB');
+    try {
+      await this.client.connect();
+      this.db = this.client.db('fercullen2025');
+      console.log('Connected to MongoDB database: fercullen2025');
+    } catch (error) {
+      console.error('Failed to connect to MongoDB:', error);
+      this.client = null;
+      this.connectionPromise = null;
+      throw error;
+    }
   }
 
   private async getCollection(name: string): Promise<Collection> {
