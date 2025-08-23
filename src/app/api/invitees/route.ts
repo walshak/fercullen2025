@@ -129,7 +129,7 @@ export const PUT = requireAuth(async (request: NextRequest) => {
     
     for (const row of validation.validRows) {
       try {
-        const sn = generateInviteeSN();
+        const sn = await generateInviteeSN();
         
         const inviteeData = {
           sn,
