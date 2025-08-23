@@ -50,7 +50,7 @@ export async function generateQRCode(text: string): Promise<string> {
 // Generate invitation email HTML with dark theme
 function generateInvitationHTML(invitee: { sn: string; name: string; email: string }, qrCodeDataURL: string, baseUrl: string): string {
   const rsvpLink = `${baseUrl}/rsvp/${invitee.sn}`;
-  
+  console.log('Got data Url: '+ qrCodeDataURL.substring(0, 100));
   return `
     <!DOCTYPE html>
     <html lang="en">
