@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import QRCode from 'qrcode';
-import { db_operations, initDatabase } from '@/lib/database';
+import { db_operations } from '@/lib/database';
 import { getBaseUrl } from '@/lib/utils';
 
 export async function GET(
@@ -8,17 +8,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await initDatabase();
-
     const { id: idString } = await params;
     const id = parseInt(idString);
     if (isNaN(id)) {
       return NextResponse.json({ error: 'Invalid invitee ID' }, { status: 400 });
     }
 
-    // Get all invitees and find by ID
-    const allInvitees = await db_operations.getAllInvitees();
-    const invitee = allInvitees.find(inv => inv.id === id);
+    // Get invitee by ID
+    const invitee = await db_operations.getInviteeById(id);
     
     if (!invitee) {
       return NextResponse.json({ error: 'Invitee not found' }, { status: 404 });

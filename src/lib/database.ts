@@ -1,9 +1,6 @@
-// Production-ready in-memory database for the Fercullen RSVP app
-// This can be easily replaced with SQLite when deployment environment supports it
-
+// MongoDB database implementation for the Fercullen RSVP app
+import { MongoClient, Db, Collection } from 'mongodb';
 import bcrypt from 'bcryptjs';
-import fs from 'fs';
-import path from 'path';
 
 interface Invitee {
   id: number;
@@ -43,231 +40,263 @@ interface InvitationLog {
   sent_at: string;
 }
 
-interface DatabaseState {
-  invitees: Invitee[];
-  admins: Admin[];
-  invitation_logs: InvitationLog[];
-  nextId: number;
-}
+class MongoDatabase {
+  private client: MongoClient | null = null;
+  private db: Db | null = null;
+  private connectionPromise: Promise<void> | null = null;
 
-// Persistent storage file path
-const DB_FILE_PATH = path.join(process.cwd(), 'data', 'fercullen-db.json');
-
-// In-memory storage with persistence
-let dbState: DatabaseState = {
-  invitees: [],
-  admins: [],
-  invitation_logs: [],
-  nextId: 1
-};
-
-// Load database from file
-function loadDatabase(): void {
-  try {
-    // Ensure data directory exists
-    const dataDir = path.dirname(DB_FILE_PATH);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+  private async connect(): Promise<void> {
+    if (this.connectionPromise) {
+      return this.connectionPromise;
     }
 
-    if (fs.existsSync(DB_FILE_PATH)) {
-      const data = fs.readFileSync(DB_FILE_PATH, 'utf8');
-      dbState = JSON.parse(data);
-      console.log('Database loaded from file');
-    } else {
-      console.log('No existing database file found, starting fresh');
-    }
-  } catch (error) {
-    console.error('Error loading database:', error);
-    // Keep default empty state
+    this.connectionPromise = this.doConnect();
+    return this.connectionPromise;
   }
-}
 
-// Save database to file
-export function saveDatabase(): void {
-  try {
-    const dataDir = path.dirname(DB_FILE_PATH);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+  private async doConnect(): Promise<void> {
+    if (this.client) {
+      return;
     }
-    
-    fs.writeFileSync(DB_FILE_PATH, JSON.stringify(dbState, null, 2), 'utf8');
-    console.log('Database saved to file');
-  } catch (error) {
-    console.error('Error saving database:', error);
-  }
-}
 
-// Initialize database
-export async function initDatabase(): Promise<boolean> {
-  // Load existing data
-  loadDatabase();
-  
-  // Create default admin if none exists
-  if (dbState.admins.length === 0) {
-    const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'fercullen2025', 10);
-    
-    dbState.admins.push({
-      id: dbState.nextId++,
-      username: process.env.ADMIN_USERNAME || 'admin',
-      password: hashedPassword,
-      created_at: new Date().toISOString()
+    const uri = process.env.MONGODB_URI;
+    if (!uri) {
+      throw new Error('MONGODB_URI environment variable is not set');
+    }
+
+    this.client = new MongoClient(uri, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
-    
-    saveDatabase();
-    console.log('Default admin user created');
+
+    await this.client.connect();
+    this.db = this.client.db('fercullen2025');
+    console.log('Connected to MongoDB');
   }
-  
-  return true;
-}
 
-export async function getDatabase(): Promise<boolean> {
-  await initDatabase();
-  return true;
-}
-
-export const db_operations = {
-  async getAdmin(username: string): Promise<Admin | undefined> {
-    return dbState.admins.find(admin => admin.username === username);
-  },
-
-  async createInvitee(inviteeData: Omit<Invitee, 'id' | 'invitation_sent' | 'rsvp_status' | 'checked_in' | 'created_at' | 'updated_at'>): Promise<{ success: boolean }> {
-    // Check for duplicate email
-    if (dbState.invitees.some(inv => inv.email === inviteeData.email)) {
-      throw new Error('UNIQUE constraint failed: invitees.email');
+  private async getCollection(name: string): Promise<Collection> {
+    await this.connect();
+    if (!this.db) {
+      throw new Error('Database not connected');
     }
-    
-    // Check for duplicate SN
-    if (dbState.invitees.some(inv => inv.sn === inviteeData.sn)) {
-      throw new Error('UNIQUE constraint failed: invitees.sn');
-    }
-    
-    const newInvitee: Invitee = {
-      ...inviteeData,
-      id: dbState.nextId++,
-      invitation_sent: false,
-      rsvp_status: 'pending',
-      checked_in: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    dbState.invitees.push(newInvitee);
-    saveDatabase();
-    return { success: true };
-  },
+    return this.db.collection(name);
+  }
 
+  // Initialize database with default admin user
+  async initialize(): Promise<void> {
+    try {
+      await this.connect();
+      
+      // Check if admin user exists
+      const adminsCollection = await this.getCollection('admins');
+      const adminExists = await adminsCollection.findOne({ username: 'admin' });
+      
+      if (!adminExists) {
+        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD || 'fercullen2025', 10);
+        const defaultAdmin: Admin = {
+          id: 1,
+          username: 'admin',
+          password: hashedPassword,
+          created_at: new Date().toISOString()
+        };
+        
+        await adminsCollection.insertOne(defaultAdmin);
+        console.log('Default admin user created');
+      }
+
+      // Create indexes for better performance
+      const inviteesCollection = await this.getCollection('invitees');
+      await inviteesCollection.createIndex({ sn: 1 }, { unique: true });
+      await inviteesCollection.createIndex({ email: 1 });
+      
+    } catch (error) {
+      console.error('Error initializing database:', error);
+      throw error;
+    }
+  }
+
+  // Invitee operations
   async getAllInvitees(): Promise<Invitee[]> {
-    return [...dbState.invitees].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-  },
+    const collection = await this.getCollection('invitees');
+    return await collection.find({}).toArray() as unknown as Invitee[];
+  }
 
-  async getInviteeBySN(sn: string): Promise<Invitee | null> {
-    return dbState.invitees.find(inv => inv.sn === sn) || null;
-  },
+  async getInviteeBySn(sn: string): Promise<Invitee | null> {
+    const collection = await this.getCollection('invitees');
+    return await collection.findOne({ sn }) as unknown as Invitee | null;
+  }
 
-  async updateInvitee(identifier: string | number, data: Partial<Invitee>): Promise<{ success: boolean }> {
-    let index = -1;
+  async getInviteeById(id: number): Promise<Invitee | null> {
+    const collection = await this.getCollection('invitees');
+    return await collection.findOne({ id }) as unknown as Invitee | null;
+  }
+
+  async createInvitee(inviteeData: Omit<Invitee, 'id' | 'created_at' | 'updated_at'>): Promise<Invitee> {
+    const collection = await this.getCollection('invitees');
     
-    if (typeof identifier === 'string') {
-      // Update by SN
-      index = dbState.invitees.findIndex(inv => inv.sn === identifier);
-    } else {
-      // Update by ID
-      index = dbState.invitees.findIndex(inv => inv.id === identifier);
-    }
+    // Get next ID
+    const lastInvitee = await collection.findOne({}, { sort: { id: -1 } }) as unknown as Invitee | null;
+    const nextId = lastInvitee ? lastInvitee.id + 1 : 1;
+
+    const now = new Date().toISOString();
+    const invitee: Invitee = {
+      ...inviteeData,
+      id: nextId,
+      created_at: now,
+      updated_at: now
+    };
+
+    await collection.insertOne(invitee);
+    return invitee;
+  }
+
+  async updateInvitee(sn: string, updates: Partial<Invitee>): Promise<Invitee | null> {
+    const collection = await this.getCollection('invitees');
     
-    if (index === -1) {
-      return { success: false };
-    }
-    
-    dbState.invitees[index] = {
-      ...dbState.invitees[index],
-      ...data,
+    const updateData = {
+      ...updates,
       updated_at: new Date().toISOString()
     };
-    
-    saveDatabase();
-    return { success: true };
-  },
 
-  async deleteInvitee(sn: string): Promise<{ success: boolean }> {
-    const index = dbState.invitees.findIndex(inv => inv.sn === sn);
-    if (index === -1) {
-      throw new Error('Invitee not found');
-    }
-    
-    dbState.invitees.splice(index, 1);
-    saveDatabase();
-    return { success: true };
-  },
+    const result = await collection.findOneAndUpdate(
+      { sn },
+      { $set: updateData },
+      { returnDocument: 'after' }
+    );
 
-  async updateRSVP(sn: string, rsvpData: { status: string; preferences?: string; notes?: string }): Promise<{ success: boolean }> {
-    const index = dbState.invitees.findIndex(inv => inv.sn === sn);
-    if (index === -1) {
-      throw new Error('Invitee not found');
-    }
+    return result as unknown as Invitee | null;
+  }
+
+  async deleteInvitee(sn: string): Promise<boolean> {
+    const collection = await this.getCollection('invitees');
+    const result = await collection.deleteOne({ sn });
+    return result.deletedCount > 0;
+  }
+
+  async bulkCreateInvitees(invitees: Omit<Invitee, 'id' | 'created_at' | 'updated_at'>[]): Promise<Invitee[]> {
+    const collection = await this.getCollection('invitees');
     
-    dbState.invitees[index] = {
-      ...dbState.invitees[index],
-      rsvp_status: rsvpData.status,
-      rsvp_preferences: rsvpData.preferences || '',
-      rsvp_notes: rsvpData.notes || '',
-      rsvp_submitted_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+    // Get next ID
+    const lastInvitee = await collection.findOne({}, { sort: { id: -1 } }) as unknown as Invitee | null;
+    let nextId = lastInvitee ? lastInvitee.id + 1 : 1;
+
+    const now = new Date().toISOString();
+    const inviteesToInsert: Invitee[] = invitees.map(invitee => ({
+      ...invitee,
+      id: nextId++,
+      created_at: now,
+      updated_at: now
+    }));
+
+    await collection.insertMany(inviteesToInsert);
+    return inviteesToInsert;
+  }
+
+  // Admin operations
+  async getAdminByUsername(username: string): Promise<Admin | null> {
+    const collection = await this.getCollection('admins');
+    return await collection.findOne({ username }) as unknown as Admin | null;
+  }
+
+  async getAllAdmins(): Promise<Admin[]> {
+    const collection = await this.getCollection('admins');
+    return await collection.find({}).toArray() as unknown as Admin[];
+  }
+
+  // Invitation log operations
+  async logInvitation(log: Omit<InvitationLog, 'id'>): Promise<void> {
+    const collection = await this.getCollection('invitation_logs');
+    
+    // Get next ID
+    const lastLog = await collection.findOne({}, { sort: { id: -1 } }) as unknown as InvitationLog | null;
+    const nextId = lastLog ? lastLog.id + 1 : 1;
+
+    const logEntry: InvitationLog = {
+      ...log,
+      id: nextId
     };
-    
-    saveDatabase();
-    return { success: true };
-  },
 
-  async checkInInvitee(sn: string): Promise<{ success: boolean }> {
-    const index = dbState.invitees.findIndex(inv => inv.sn === sn);
-    if (index === -1) {
-      throw new Error('Invitee not found');
-    }
-    
-    dbState.invitees[index] = {
-      ...dbState.invitees[index],
-      checked_in: true,
-      checked_in_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    };
-    
-    saveDatabase();
-    return { success: true };
-  },
+    await collection.insertOne(logEntry);
+  }
 
-  async logInvitation(inviteeSN: string, email: string, status: string, errorMessage?: string): Promise<void> {
-    const log: InvitationLog = {
-      id: dbState.nextId++,
-      invitee_sn: inviteeSN,
-      email,
-      status,
-      error_message: errorMessage,
-      sent_at: new Date().toISOString()
-    };
-    
-    dbState.invitation_logs.push(log);
-    saveDatabase();
-  },
+  async getInvitationLogs(): Promise<InvitationLog[]> {
+    const collection = await this.getCollection('invitation_logs');
+    return await collection.find({}).sort({ sent_at: -1 }).toArray() as unknown as InvitationLog[];
+  }
 
+  // Statistics
   async getStats() {
-    const totalInvitees = dbState.invitees.length;
-    const totalSent = dbState.invitees.filter(inv => inv.invitation_sent).length;
-    const totalRSVP = dbState.invitees.filter(inv => inv.rsvp_status !== 'pending').length;
-    const totalAccepted = dbState.invitees.filter(inv => inv.rsvp_status === 'accepted').length;
-    const totalDeclined = dbState.invitees.filter(inv => inv.rsvp_status === 'declined').length;
-    const totalCheckedIn = dbState.invitees.filter(inv => inv.checked_in).length;
+    const inviteesCollection = await this.getCollection('invitees');
+    const logsCollection = await this.getCollection('invitation_logs');
+
+    const [
+      totalInvitees,
+      sentInvitations,
+      acceptedRsvps,
+      checkedInGuests,
+      totalLogs
+    ] = await Promise.all([
+      inviteesCollection.countDocuments({}),
+      inviteesCollection.countDocuments({ invitation_sent: true }),
+      inviteesCollection.countDocuments({ rsvp_status: 'accepted' }),
+      inviteesCollection.countDocuments({ checked_in: true }),
+      logsCollection.countDocuments({})
+    ]);
 
     return {
-      totalInvitees,
-      totalSent,
-      totalRSVP,
-      totalAccepted,
-      totalDeclined,
-      totalCheckedIn
+      total_invitees: totalInvitees,
+      sent_invitations: sentInvitations,
+      accepted_rsvps: acceptedRsvps,
+      checked_in_guests: checkedInGuests,
+      total_logs: totalLogs
     };
   }
+
+  // Close connection
+  async close(): Promise<void> {
+    if (this.client) {
+      await this.client.close();
+      this.client = null;
+      this.db = null;
+      this.connectionPromise = null;
+    }
+  }
+}
+
+// Export a singleton instance
+const mongoDb = new MongoDatabase();
+
+// Export the operations object
+export const db_operations = {
+  // Initialize
+  initialize: () => mongoDb.initialize(),
+
+  // Invitee operations
+  getAllInvitees: () => mongoDb.getAllInvitees(),
+  getInviteeBySn: (sn: string) => mongoDb.getInviteeBySn(sn),
+  getInviteeById: (id: number) => mongoDb.getInviteeById(id),
+  createInvitee: (inviteeData: Omit<Invitee, 'id' | 'created_at' | 'updated_at'>) => mongoDb.createInvitee(inviteeData),
+  updateInvitee: (sn: string, updates: Partial<Invitee>) => mongoDb.updateInvitee(sn, updates),
+  deleteInvitee: (sn: string) => mongoDb.deleteInvitee(sn),
+  bulkCreateInvitees: (invitees: Omit<Invitee, 'id' | 'created_at' | 'updated_at'>[]) => mongoDb.bulkCreateInvitees(invitees),
+
+  // Admin operations
+  getAdminByUsername: (username: string) => mongoDb.getAdminByUsername(username),
+  getAllAdmins: () => mongoDb.getAllAdmins(),
+
+  // Invitation log operations
+  logInvitation: (log: Omit<InvitationLog, 'id'>) => mongoDb.logInvitation(log),
+  getInvitationLogs: () => mongoDb.getInvitationLogs(),
+
+  // Statistics
+  getStats: () => mongoDb.getStats(),
+
+  // Close connection
+  close: () => mongoDb.close()
 };
 
+// Initialize on import
+mongoDb.initialize().catch(console.error);
 
+export default mongoDb;

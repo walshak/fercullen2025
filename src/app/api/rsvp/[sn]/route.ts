@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db_operations, initDatabase } from '@/lib/database';
+import { db_operations } from '@/lib/database';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ sn: string }> }
 ) {
   try {
-    await initDatabase();
-    
     const { sn } = await params;
     
     if (!sn) {
@@ -16,7 +14,7 @@ export async function GET(
 
     console.log(`Fetching invitee with SN: ${sn}`);
 
-    const invitee = await db_operations.getInviteeBySN(sn);
+    const invitee = await db_operations.getInviteeBySn(sn);
     
     if (!invitee) {
       return NextResponse.json({ error: 'Invitation not found' }, { status: 404 });
@@ -41,8 +39,6 @@ export async function POST(
   { params }: { params: Promise<{ sn: string }> }
 ) {
   try {
-    await initDatabase();
-    
     const { sn } = await params;
     const { status, preferences, notes } = await request.json();
     
@@ -55,7 +51,7 @@ export async function POST(
     }
 
     // Check if invitee exists
-    const existingInvitee = await db_operations.getInviteeBySN(sn);
+    const existingInvitee = await db_operations.getInviteeBySn(sn);
     if (!existingInvitee) {
       return NextResponse.json({ error: 'Invitation not found' }, { status: 404 });
     }
@@ -80,19 +76,20 @@ export async function POST(
       updateData.rsvp_notes = notes;
     }
 
-    const success = await db_operations.updateInvitee(existingInvitee.id, updateData);
+    const success = await db_operations.updateInvitee(existingInvitee.sn, updateData);
     
     if (!success) {
       return NextResponse.json({ error: 'Failed to update RSVP' }, { status: 500 });
     }
 
     // Log the RSVP submission
-    await db_operations.logInvitation(
-      sn,
-      existingInvitee.email,
-      `rsvp_${status}`,
-      `RSVP submitted: ${status}${preferences ? `, preferences: ${preferences}` : ''}${notes ? `, notes: ${notes}` : ''}`
-    );
+    await db_operations.logInvitation({
+      invitee_sn: sn,
+      email: existingInvitee.email,
+      status: `rsvp_${status}`,
+      error_message: `RSVP submitted: ${status}${preferences ? `, preferences: ${preferences}` : ''}${notes ? `, notes: ${notes}` : ''}`,
+      sent_at: new Date().toISOString()
+    });
 
     return NextResponse.json({
       success: true,

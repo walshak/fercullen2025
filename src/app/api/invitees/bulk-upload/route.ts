@@ -83,7 +83,10 @@ export async function POST(request: NextRequest) {
           company: row.company || '',
           phone: row.phone || '',
           notes: row.notes || '',
-          email_invite_flag: emailInviteFlag
+          email_invite_flag: emailInviteFlag,
+          invitation_sent: false,
+          rsvp_status: 'pending',
+          checked_in: false
         };
 
         await db_operations.createInvitee(inviteeData);
@@ -91,7 +94,7 @@ export async function POST(request: NextRequest) {
         // Send email if flagged
         if (emailInviteFlag) {
           try {
-            const newInvitee = await db_operations.getInviteeBySN(sn);
+            const newInvitee = await db_operations.getInviteeBySn(sn);
             if (newInvitee) {
               const baseUrl = getBaseUrl(request);
               await sendInvitationEmail(newInvitee, baseUrl);

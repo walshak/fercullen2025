@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, generateInviteeSN } from '@/lib/auth';
-import { db_operations, initDatabase } from '@/lib/database';
+import { db_operations } from '@/lib/database';
 import { parseCSVData, validateCSVData, getBaseUrl } from '@/lib/utils';
 
 // GET /api/invitees - Get all invitees
 export const GET = requireAuth(async () => {
   try {
-    await initDatabase();
     const invitees = await db_operations.getAllInvitees();
     
     return NextResponse.json({
@@ -25,7 +24,6 @@ export const GET = requireAuth(async () => {
 // POST /api/invitees - Create new invitee
 export const POST = requireAuth(async (request: NextRequest) => {
   try {
-    await initDatabase();
     const body = await request.json();
     
     // Validate required fields
@@ -48,7 +46,10 @@ export const POST = requireAuth(async (request: NextRequest) => {
       email: body.email.trim().toLowerCase(),
       phone: body.phone?.trim() || '',
       notes: body.notes?.trim() || '',
-      email_invite_flag: Boolean(body.email_invite_flag)
+      email_invite_flag: Boolean(body.email_invite_flag),
+      invitation_sent: false,
+      rsvp_status: 'pending',
+      checked_in: false
     };
     
     // Save to database
@@ -57,7 +58,7 @@ export const POST = requireAuth(async (request: NextRequest) => {
     // Send email immediately if flagged
     if (inviteeData.email_invite_flag) {
       try {
-        const newInvitee = await db_operations.getInviteeBySN(inviteeData.sn);
+        const newInvitee = await db_operations.getInviteeBySn(inviteeData.sn);
         if (newInvitee) {
           const { sendInvitationEmail } = await import('@/lib/email');
           const baseUrl = getBaseUrl(request);
@@ -98,7 +99,6 @@ export const POST = requireAuth(async (request: NextRequest) => {
 // PUT /api/invitees - Bulk upload invitees from CSV
 export const PUT = requireAuth(async (request: NextRequest) => {
   try {
-    await initDatabase();
     const body = await request.json();
     
     if (!body.csvData) {
@@ -140,7 +140,10 @@ export const PUT = requireAuth(async (request: NextRequest) => {
           email: row.email.toLowerCase(),
           phone: row.phone || '',
           notes: row.notes || '',
-          email_invite_flag: Boolean(row.email_invite_flag)
+          email_invite_flag: Boolean(row.email_invite_flag),
+          invitation_sent: false,
+          rsvp_status: 'pending',
+          checked_in: false
         };
         
         await db_operations.createInvitee(inviteeData);

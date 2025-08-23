@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
-import { db_operations, initDatabase } from '@/lib/database';
+import { db_operations } from '@/lib/database';
 
 // GET /api/stats - Get dashboard statistics
 export const GET = requireAuth(async () => {
   try {
-    await initDatabase();
     const stats = await db_operations.getStats();
     
     return NextResponse.json({

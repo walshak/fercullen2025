@@ -2,7 +2,7 @@ import nodemailer from 'nodemailer';
 import QRCode from 'qrcode';
 import { db_operations } from './database';
 
-// Create transporter
+// Create transporter with increased timeout and better error handling
 const transporter = nodemailer.createTransport({
   host: process.env.MAIL_HOST,
   port: parseInt(process.env.MAIL_PORT || '465'),
@@ -11,6 +11,13 @@ const transporter = nodemailer.createTransport({
     user: process.env.MAIL_USERNAME,
     pass: process.env.MAIL_PASSWORD,
   },
+  connectionTimeout: 60000, // 60 seconds
+  greetingTimeout: 30000,   // 30 seconds
+  socketTimeout: 60000,     // 60 seconds
+  pool: true,
+  maxConnections: 5,
+  maxMessages: 100,
+  rateLimit: 10, // messages per second
 });
 
 // Generate QR Code as base64 data URL
@@ -98,122 +105,119 @@ function generateInvitationHTML(invitee: { sn: string; name: string; email: stri
         }
         .content {
           padding: 40px 30px;
-          line-height: 1.7;
-          color: #e0e0e0;
           background-color: #1a1f2e;
+          color: #e0e4e7;
+          line-height: 1.6;
         }
         .greeting {
-          font-size: 20px;
+          font-size: 18px;
           margin-bottom: 25px;
-          color: #bc9254;
-          font-weight: 600;
+          color: #ffffff;
+        }
+        .invitation-text {
+          font-size: 16px;
+          margin-bottom: 30px;
+          text-align: left;
+          color: #d0d4d7;
         }
         .event-details {
-          background: linear-gradient(135deg, #2a2f3e 0%, #1e2332 100%);
-          padding: 25px;
+          background: linear-gradient(135deg, #01315c, #2a3f5c);
+          border: 1px solid #bc9254;
           border-radius: 12px;
-          margin: 25px 0;
-          border: 1px solid #3a3f4e;
+          padding: 25px;
+          margin: 30px 0;
+          text-align: center;
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
         }
         .event-details h3 {
-          margin-top: 0;
-          color: #bc9254;
-          font-size: 22px;
-          margin-bottom: 20px;
-        }
-        .detail-item {
-          margin: 15px 0;
-          display: flex;
-          align-items: flex-start;
-          padding: 8px 0;
-          border-bottom: 1px solid #3a3f4e;
-        }
-        .detail-item:last-child {
-          border-bottom: none;
-        }
-        .detail-label {
-          font-weight: bold;
+          margin: 0 0 15px 0;
           color: #f9d8a4;
-          width: 90px;
-          display: inline-block;
-          flex-shrink: 0;
+          font-size: 20px;
+          font-weight: bold;
+        }
+        .event-details p {
+          margin: 8px 0;
+          color: #ffffff;
+          font-size: 14px;
         }
         .qr-section {
-          text-align: center;
-          margin: 35px 0;
-          padding: 30px;
-          background: linear-gradient(135deg, #2a2f3e 0%, #1e2332 100%);
+          background-color: #0f1419;
+          border: 2px solid #bc9254;
           border-radius: 12px;
-          border: 1px solid #3a3f4e;
+          padding: 25px;
+          text-align: center;
+          margin: 30px 0;
         }
         .qr-section h3 {
-          color: #bc9254;
-          margin-top: 0;
-          font-size: 20px;
+          margin: 0 0 15px 0;
+          color: #f9d8a4;
+          font-size: 18px;
         }
         .qr-code {
-          margin: 25px 0;
-          padding: 15px;
           background-color: #ffffff;
-          border-radius: 12px;
-          display: inline-block;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-        }
-        .qr-code img {
-          border: none;
+          padding: 15px;
           border-radius: 8px;
-          display: block;
+          display: inline-block;
+          margin: 15px 0;
         }
         .rsvp-button {
-          display: inline-block;
-          background: linear-gradient(135deg, #01315c 0%, #bc9254 100%);
-          color: #ffffff;
+          background: linear-gradient(135deg, #bc9254, #f9d8a4);
+          color: #01315c;
           padding: 18px 36px;
           text-decoration: none;
-          border-radius: 30px;
+          border-radius: 8px;
           font-weight: bold;
           font-size: 16px;
+          display: inline-block;
           margin: 25px 0;
-          transition: all 0.3s ease;
-          box-shadow: 0 4px 16px rgba(188, 146, 84, 0.3);
+          text-transform: uppercase;
           letter-spacing: 1px;
+          box-shadow: 0 4px 12px rgba(188, 146, 84, 0.3);
+          transition: all 0.3s ease;
         }
         .rsvp-button:hover {
           transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(188, 146, 84, 0.4);
+          box-shadow: 0 6px 16px rgba(188, 146, 84, 0.4);
         }
         .footer {
-          background: linear-gradient(135deg, #0a0f1a 0%, #01315c 100%);
-          color: #e0e0e0;
-          padding: 25px;
+          background-color: #0f1419;
+          padding: 30px;
           text-align: center;
-          font-size: 14px;
-          border-top: 1px solid #3a3f4e;
+          border-top: 1px solid #2a2f3e;
         }
-        .footer a {
-          color: #bc9254;
-          text-decoration: none;
+        .footer p {
+          margin: 8px 0;
+          font-size: 12px;
+          color: #8a8e91;
+        }
+        .whiskey-accent {
+          color: #f9d8a4;
+          font-weight: bold;
         }
         .divider {
-          height: 3px;
-          background: linear-gradient(to right, #01315c, #bc9254, #f9d8a4);
-          margin: 25px 0;
-          border-radius: 2px;
+          height: 2px;
+          background: linear-gradient(90deg, transparent, #bc9254, transparent);
+          margin: 30px 0;
         }
-        .highlight {
-          color: #bc9254;
-          font-weight: 600;
-        }
-        .subtle-text {
-          font-size: 13px;
-          color: #a0a0a0;
-          margin-top: 15px;
-        }
-        .venue-address {
-          color: #c0c0c0;
-          font-size: 14px;
-          line-height: 1.4;
+        
+        @media (max-width: 600px) {
+          .container {
+            margin: 0;
+            border-radius: 0;
+          }
+          .header {
+            padding: 30px 15px;
+          }
+          .content {
+            padding: 25px 20px;
+          }
+          .header h1 {
+            font-size: 24px;
+          }
+          .rsvp-button {
+            padding: 15px 25px;
+            font-size: 14px;
+          }
         }
       </style>
     </head>
@@ -221,69 +225,81 @@ function generateInvitationHTML(invitee: { sn: string; name: string; email: stri
       <div class="container">
         <div class="header">
           <div class="header-content">
-            <h1>🥃 FERCULLEN IRISH WHISKEY</h1>
-            <p>Nigeria Launch Event</p>
+            <h1>Fercullen Irish Whiskey</h1>
+            <p>Exclusive Launch Event</p>
           </div>
         </div>
         
         <div class="content">
           <div class="greeting">
-            Dear ${invitee.name},
+            Dear <span class="whiskey-accent">${invitee.name}</span>,
           </div>
           
-          <p style="color: #bc9254">You are cordially invited to the exclusive launch of <span class="highlight">Fercullen Irish Whiskey</span> in Nigeria. Join us for an unforgettable evening celebrating premium Irish craftsmanship and the art of fine whiskey making.</p>
+          <div class="invitation-text">
+            You are cordially invited to the exclusive launch of <strong class="whiskey-accent">Fercullen Irish Whiskey</strong> 
+            in Nigeria. Join us for an evening of premium whiskey tasting, networking, and celebration 
+            as we introduce this exceptional Irish whiskey to the Nigerian market.
+            
+            <div class="divider"></div>
+            
+            This exclusive event brings together whiskey connoisseurs, business leaders, and distinguished 
+            guests for an unforgettable evening celebrating the finest Irish craftsmanship.
+          </div>
           
           <div class="event-details">
-            <h3>🗓️ Event Details</h3>
-            <div class="detail-item">
-              <span class="detail-label">Date:</span>
-              <span>October 18, 2025</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Time:</span>
-              <span>5:00 PM WAT</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">Venue:</span>
-              <div class="venue-address">
-                Monarch Event Center<br>
-                138 Lekki - Epe Expressway<br>
-                Lekki Peninsula II, Lekki 106104<br>
-                Lagos, Nigeria
-              </div>
-            </div>
+            <h3>🥃 Event Details</h3>
+            <p><strong>Date:</strong> ${new Date(process.env.EVENT_DATE || '2025-10-18').toLocaleDateString('en-US', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}</p>
+            <p><strong>Time:</strong> ${process.env.EVENT_TIME || '5:00 PM'}</p>
+            <p><strong>Venue:</strong> ${process.env.EVENT_VENUE || 'Monarch Event Center, Lekki, Lagos'}</p>
+            <p><strong>Dress Code:</strong> Business Formal</p>
           </div>
           
-          <div class="divider"></div>
+          <div style="text-align: center;">
+            <a href="${rsvpLink}" class="rsvp-button">RSVP Now</a>
+          </div>
           
           <div class="qr-section">
-            <h3>📱 RSVP Quick Access</h3>
-            <p>Scan the QR code below or click the button to confirm your attendance:</p>
-            
+            <h3>🎟️ Your Personal QR Code</h3>
+            <p style="color: #d0d4d7; margin-bottom: 15px;">
+              Present this QR code at the venue for quick check-in
+            </p>
             <div class="qr-code">
-              <img src="${qrCodeDataURL}" alt="RSVP QR Code" />
+              <img src="${qrCodeDataURL}" alt="Event QR Code" style="width: 200px; height: 200px;" />
             </div>
-            
-            <a href="${rsvpLink}" class="rsvp-button">RSVP NOW</a>
-            
-            <div class="subtle-text">
-              Direct link: <a href="${rsvpLink}" style="color: #bc9254; text-decoration: none;">${rsvpLink}</a>
-            </div>
+            <p style="font-size: 12px; color: #8a8e91; margin-top: 15px;">
+              Serial Number: <strong style="color: #f9d8a4;">${invitee.sn}</strong>
+            </p>
           </div>
           
-          <p>We look forward to celebrating this momentous occasion with you. Please RSVP by <span class="highlight">October 15, 2025</span>.</p>
+          <div class="invitation-text">
+            <strong>What to Expect:</strong>
+            <ul style="color: #d0d4d7; padding-left: 20px;">
+              <li>Premium Fercullen whiskey tasting experience</li>
+              <li>Networking with industry leaders and connoisseurs</li>
+              <li>Insights into Irish whiskey craftsmanship</li>
+              <li>Gourmet canapés and refreshments</li>
+              <li>Exclusive first access to Fercullen in Nigeria</li>
+            </ul>
+          </div>
           
-          <p style="margin-bottom: 0; color: #bc9254">Experience the heritage, taste the excellence.</p>
+          <div style="background-color: #2a1810; border-left: 4px solid #bc9254; padding: 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+            <p style="margin: 0; font-style: italic; color: #f9d8a4;">
+              "Please RSVP by clicking the button above to confirm your attendance. 
+              Space is limited and this exclusive event is by invitation only."
+            </p>
+          </div>
         </div>
         
         <div class="footer">
-          <p style="margin: 0;">
-            <strong>Fercullen Irish Whiskey</strong><br>
-            Premium Irish Spirits | Est. in Ireland
-          </p>
-          <div style="margin-top: 15px; font-size: 12px; opacity: 0.8;">
-            This is an exclusive invitation. Please do not forward this email.
-          </div>
+          <div class="divider"></div>
+          <p>This invitation is non-transferable and valid for one person only.</p>
+          <p>For inquiries, please contact the event organizers.</p>
+          <p style="color: #f9d8a4; font-weight: bold;">Fercullen Irish Whiskey Launch - Nigeria 2025</p>
         </div>
       </div>
     </body>
@@ -291,62 +307,91 @@ function generateInvitationHTML(invitee: { sn: string; name: string; email: stri
   `;
 }
 
+// Verify transporter connection with retry logic
+async function verifyTransporter(retries = 3): Promise<boolean> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await transporter.verify();
+      console.log('Email transporter verified successfully');
+      return true;
+    } catch (error) {
+      console.error(`Transporter verification attempt ${i + 1} failed:`, error);
+      if (i === retries - 1) {
+        return false;
+      }
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)));
+    }
+  }
+  return false;
+}
+
 // Send invitation email
-export async function sendInvitationEmail(invitee: { sn: string; name: string; email: string; email_invite_flag?: boolean }, baseUrl?: string): Promise<{ success: boolean; error?: string }> {
+export async function sendInvitationEmail(
+  invitee: { sn: string; name: string; email: string }, 
+  baseUrl: string
+): Promise<{ success: boolean; error?: string }> {
   try {
-    // Use provided baseUrl or fallback to environment variable
-    const appBaseUrl = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    // Verify transporter first
+    const isVerified = await verifyTransporter();
+    if (!isVerified) {
+      throw new Error('Email transporter verification failed');
+    }
+
+    // Generate QR code
+    const qrCodeDataURL = await generateQRCode(`${baseUrl}/rsvp/${invitee.sn}`);
     
-    // Generate QR code for RSVP link
-    const rsvpLink = `${appBaseUrl}/rsvp/${invitee.sn}`;
-    const qrCodeDataURL = await generateQRCode(rsvpLink);
-    
-    // Generate email HTML
-    const htmlContent = generateInvitationHTML(invitee, qrCodeDataURL, appBaseUrl);
+    // Generate HTML content
+    const htmlContent = generateInvitationHTML(invitee, qrCodeDataURL, baseUrl);
     
     // Email options
     const mailOptions = {
-      from: {
-        name: 'Fercullen Irish Whiskey',
-        address: process.env.MAIL_FROM_ADDRESS || ''
-      },
+      from: `"Fercullen Irish Whiskey Launch" <${process.env.MAIL_FROM_ADDRESS}>`,
       to: invitee.email,
-      subject: '🥃 Exclusive Invitation: Fercullen Irish Whiskey Nigeria Launch',
+      subject: '🥃 Exclusive Invitation: Fercullen Irish Whiskey Launch - Nigeria',
       html: htmlContent,
       attachments: [
         {
-          filename: `fercullen-rsvp-${invitee.sn}.png`,
+          filename: 'qr-code.png',
           content: qrCodeDataURL.split(',')[1],
           encoding: 'base64',
           cid: 'qrcode'
         }
       ]
     };
+
+    // Send email with timeout
+    await Promise.race([
+      transporter.sendMail(mailOptions),
+      new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email send timeout')), 45000)
+      )
+    ]);
+
+    console.log('Invitation email sent successfully to:', invitee.email);
     
-    // Send email
-    await transporter.sendMail(mailOptions);
-    
-    // Update invitation status in database
-    await db_operations.updateInvitee(invitee.sn, {
-      invitation_sent: true,
-      invitation_sent_at: new Date().toISOString()
+    // Log successful invitation
+    await db_operations.logInvitation({
+      invitee_sn: invitee.sn,
+      email: invitee.email,
+      status: 'sent',
+      sent_at: new Date().toISOString()
     });
-    
-    // Log successful send
-    await db_operations.logInvitation(invitee.sn, invitee.email, 'sent');
-    
+
     return { success: true };
+    
   } catch (error) {
     console.error('Error sending invitation email:', error);
     
-    // Log failed send
-    await db_operations.logInvitation(
-      invitee.sn, 
-      invitee.email, 
-      'failed', 
-      error instanceof Error ? error.message : 'Unknown error'
-    );
-    
+    // Log failed invitation
+    await db_operations.logInvitation({
+      invitee_sn: invitee.sn,
+      email: invitee.email,
+      status: 'failed',
+      error_message: error instanceof Error ? error.message : 'Unknown error',
+      sent_at: new Date().toISOString()
+    });
+
     return { 
       success: false, 
       error: error instanceof Error ? error.message : 'Unknown error' 
@@ -354,49 +399,64 @@ export async function sendInvitationEmail(invitee: { sn: string; name: string; e
   }
 }
 
-// Send bulk invitations
-export async function sendBulkInvitations(invitees: Array<{ sn: string; name: string; email: string; email_invite_flag?: boolean; invitation_sent?: boolean }>, baseUrl?: string): Promise<{
-  success: number;
-  failed: number;
-  results: Array<{ sn: string; success: boolean; error?: string }>
-}> {
-  const results = [];
-  let successCount = 0;
-  let failedCount = 0;
-  
-  for (const invitee of invitees) {
-    if (invitee.email_invite_flag && !invitee.invitation_sent) {
+// Send bulk invitations with rate limiting
+export async function sendBulkInvitations(
+  invitees: { sn: string; name: string; email: string }[], 
+  baseUrl: string,
+  onProgress?: (sent: number, total: number, current: string) => void
+): Promise<{ success: number; failed: number; errors: string[] }> {
+  const results = {
+    success: 0,
+    failed: 0,
+    errors: [] as string[]
+  };
+
+  console.log(`Starting bulk email sending for ${invitees.length} invitees...`);
+
+  for (let i = 0; i < invitees.length; i++) {
+    const invitee = invitees[i];
+    
+    if (onProgress) {
+      onProgress(i, invitees.length, invitee.email);
+    }
+
+    try {
       const result = await sendInvitationEmail(invitee, baseUrl);
       
       if (result.success) {
-        successCount++;
+        results.success++;
+        console.log(`✓ Sent to ${invitee.email} (${i + 1}/${invitees.length})`);
       } else {
-        failedCount++;
+        results.failed++;
+        results.errors.push(`${invitee.email}: ${result.error}`);
+        console.log(`✗ Failed to send to ${invitee.email}: ${result.error}`);
       }
-      
-      results.push({
-        sn: invitee.sn,
-        success: result.success,
-        error: result.error
-      });
-      
-      // Add delay between emails to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    } catch (error) {
+      results.failed++;
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      results.errors.push(`${invitee.email}: ${errorMsg}`);
+      console.log(`✗ Failed to send to ${invitee.email}: ${errorMsg}`);
+    }
+
+    // Rate limiting: wait between emails
+    if (i < invitees.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
     }
   }
-  
-  return {
-    success: successCount,
-    failed: failedCount,
-    results
-  };
+
+  console.log(`Bulk email sending completed. Success: ${results.success}, Failed: ${results.failed}`);
+  return results;
 }
 
 // Test email configuration
 export async function testEmailConfiguration(): Promise<{ success: boolean; error?: string }> {
   try {
-    await transporter.verify();
-    return { success: true };
+    const verified = await verifyTransporter();
+    if (verified) {
+      return { success: true };
+    } else {
+      return { success: false, error: 'Transporter verification failed' };
+    }
   } catch (error) {
     return { 
       success: false, 

@@ -13,7 +13,7 @@ export interface AdminUser {
 // Authenticate admin user
 export async function authenticateAdmin(username: string, password: string): Promise<AdminUser | null> {
   try {
-    const admin = await db_operations.getAdmin(username);
+    const admin = await db_operations.getAdminByUsername(username);
     
     if (!admin) {
       return null;
