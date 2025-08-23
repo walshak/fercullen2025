@@ -231,7 +231,7 @@ function generateInvitationHTML(invitee: { sn: string; name: string; email: stri
             Dear ${invitee.name},
           </div>
           
-          <p>You are cordially invited to the exclusive launch of <span class="highlight">Fercullen Irish Whiskey</span> in Nigeria. Join us for an unforgettable evening celebrating premium Irish craftsmanship and the art of fine whiskey making.</p>
+          <p style="color: #bc9254">You are cordially invited to the exclusive launch of <span class="highlight">Fercullen Irish Whiskey</span> in Nigeria. Join us for an unforgettable evening celebrating premium Irish craftsmanship and the art of fine whiskey making.</p>
           
           <div class="event-details">
             <h3>🗓️ Event Details</h3>
@@ -273,7 +273,7 @@ function generateInvitationHTML(invitee: { sn: string; name: string; email: stri
           
           <p>We look forward to celebrating this momentous occasion with you. Please RSVP by <span class="highlight">October 15, 2025</span>.</p>
           
-          <p style="margin-bottom: 0;">Experience the heritage, taste the excellence.</p>
+          <p style="margin-bottom: 0; color: #bc9254">Experience the heritage, taste the excellence.</p>
         </div>
         
         <div class="footer">

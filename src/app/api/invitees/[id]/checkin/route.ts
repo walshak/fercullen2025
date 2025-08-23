@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db_operations } from '@/lib/database';
+import { db_operations, initDatabase } from '@/lib/database';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await initDatabase();
+
     const { id: idString } = await params;
     const id = parseInt(idString);
     if (isNaN(id)) {

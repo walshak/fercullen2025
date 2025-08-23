@@ -2,73 +2,65 @@
   "invitees": [
     {
       "sn": "FQ-001",
-      "name": "Walshak Apollos",
-      "title": "Mr",
+      "name": "Walshak Timothy Apollos",
+      "title": "mr",
       "company": "Apollos Technologies",
       "email": "walshak1999@gmail.com",
-      "phone": "07050737402",
-      "notes": "hhhh",
+      "phone": "08188223228",
+      "notes": "",
       "email_invite_flag": true,
-      "id": 2,
+      "id": 1,
       "invitation_sent": true,
       "rsvp_status": "accepted",
       "checked_in": true,
-      "created_at": "2025-08-22T09:45:53.506Z",
-      "updated_at": "2025-08-22T10:45:12.180Z",
-      "invitation_sent_at": "2025-08-22T10:41:54.183Z",
-      "rsvp_submitted_at": "2025-08-22T10:44:40.348Z",
+      "created_at": "2025-08-23T11:33:36.329Z",
+      "updated_at": "2025-08-23T12:31:28.279Z",
+      "invitation_sent_at": "2025-08-23T12:23:24.899Z",
+      "rsvp_submitted_at": "2025-08-23T12:30:58.378Z",
       "rsvp_preferences": "None",
-      "rsvp_notes": "I amcoming early",
-      "checked_in_at": "2025-08-22T10:45:12.180Z"
+      "rsvp_notes": "yy9",
+      "checked_in_at": "2025-08-23T12:31:28.279Z"
     }
   ],
   "admins": [
     {
-      "id": 1,
+      "id": 2,
       "username": "admin",
-      "password": "$2b$10$aIgF3lKZ65pcnXCsyxBStOSVctxbidXnRETN2dUh1PIfpcodooGmy",
-      "created_at": "2025-08-22T08:44:53.536Z"
+      "password": "$2b$10$waUlLD.Iy9jug1NXuNNKFO0mUPxWFJP5z2riCiL7UXeIjr/W1ttJ.",
+      "created_at": "2025-08-23T11:27:09.221Z"
     }
   ],
   "invitation_logs": [
+    {
+      "id": 2,
+      "invitee_sn": "FQ-001",
+      "email": "walshak1999@gmail.com",
+      "status": "sent",
+      "sent_at": "2025-08-23T11:33:39.094Z"
+    },
     {
       "id": 3,
       "invitee_sn": "FQ-001",
       "email": "walshak1999@gmail.com",
       "status": "sent",
-      "sent_at": "2025-08-22T09:46:18.844Z"
+      "sent_at": "2025-08-23T12:23:24.896Z"
     },
     {
       "id": 4,
       "invitee_sn": "FQ-001",
       "email": "walshak1999@gmail.com",
       "status": "rsvp_accepted",
-      "error_message": "RSVP submitted: accepted, preferences: Vegetarian, notes: Looking forward to the event!",
-      "sent_at": "2025-08-22T10:37:39.971Z"
+      "error_message": "RSVP submitted: accepted, preferences: None, notes: yy",
+      "sent_at": "2025-08-23T12:26:47.048Z"
     },
     {
       "id": 5,
       "invitee_sn": "FQ-001",
       "email": "walshak1999@gmail.com",
       "status": "rsvp_accepted",
-      "error_message": "RSVP submitted: accepted",
-      "sent_at": "2025-08-22T10:37:47.980Z"
-    },
-    {
-      "id": 6,
-      "invitee_sn": "FQ-001",
-      "email": "walshak1999@gmail.com",
-      "status": "sent",
-      "sent_at": "2025-08-22T10:41:54.180Z"
-    },
-    {
-      "id": 7,
-      "invitee_sn": "FQ-001",
-      "email": "walshak1999@gmail.com",
-      "status": "rsvp_accepted",
-      "error_message": "RSVP submitted: accepted, preferences: None, notes: I amcoming early",
-      "sent_at": "2025-08-22T10:44:40.352Z"
+      "error_message": "RSVP submitted: accepted, preferences: None, notes: yy9",
+      "sent_at": "2025-08-23T12:30:58.385Z"
     }
   ],
-  "nextId": 8
+  "nextId": 6
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db_operations } from '@/lib/database';
+import { db_operations, initDatabase } from '@/lib/database';
 import { sendInvitationEmail } from '@/lib/email';
 
 export async function POST(
@@ -7,6 +7,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await initDatabase();
+    
     const { id: idString } = await params;
     const id = parseInt(idString);
     if (isNaN(id)) {
@@ -15,7 +17,9 @@ export async function POST(
 
     // Get all invitees and find by ID
     const allInvitees = await db_operations.getAllInvitees();
-    const invitee = allInvitees.find(inv => inv.id === id);
+
+    console.log(allInvitees);
+    const invitee = allInvitees.find(inv => inv.id == id);
     
     if (!invitee) {
       return NextResponse.json({ error: 'Invitee not found' }, { status: 404 });

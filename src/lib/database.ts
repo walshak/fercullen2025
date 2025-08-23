@@ -158,7 +158,7 @@ export const db_operations = {
   },
 
   async getAllInvitees(): Promise<Invitee[]> {
-    return [...dbState.invitees].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return [...dbState.invitees].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
   },
 
   async getInviteeBySN(sn: string): Promise<Invitee | null> {
