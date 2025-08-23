@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import QRCode from 'qrcode';
 import { db_operations, initDatabase } from '@/lib/database';
+import { getBaseUrl } from '@/lib/utils';
 
 export async function GET(
   request: NextRequest,
@@ -23,8 +24,8 @@ export async function GET(
       return NextResponse.json({ error: 'Invitee not found' }, { status: 404 });
     }
 
-    // Generate RSVP URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    // Generate RSVP URL using request object
+    const baseUrl = getBaseUrl(request);
     const rsvpUrl = `${baseUrl}/rsvp/${invitee.sn}`;
 
     // Generate QR code as PNG buffer

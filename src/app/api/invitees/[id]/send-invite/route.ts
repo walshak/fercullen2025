@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db_operations, initDatabase } from '@/lib/database';
 import { sendInvitationEmail } from '@/lib/email';
+import { getBaseUrl } from '@/lib/utils';
 
 export async function POST(
   request: NextRequest,
@@ -26,7 +27,8 @@ export async function POST(
     }
 
     try {
-      await sendInvitationEmail(invitee);
+      const baseUrl = getBaseUrl(request);
+      await sendInvitationEmail(invitee, baseUrl);
       await db_operations.updateInvitee(invitee.sn, { 
         invitation_sent: true, 
         invitation_sent_at: new Date().toISOString() 

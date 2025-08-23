@@ -32,8 +32,8 @@ export async function generateQRCode(text: string): Promise<string> {
 }
 
 // Generate invitation email HTML with dark theme
-function generateInvitationHTML(invitee: { sn: string; name: string; email: string }, qrCodeDataURL: string): string {
-  const rsvpLink = `${process.env.NEXTAUTH_URL}/rsvp/${invitee.sn}`;
+function generateInvitationHTML(invitee: { sn: string; name: string; email: string }, qrCodeDataURL: string, baseUrl: string): string {
+  const rsvpLink = `${baseUrl}/rsvp/${invitee.sn}`;
   
   return `
     <!DOCTYPE html>
@@ -292,14 +292,17 @@ function generateInvitationHTML(invitee: { sn: string; name: string; email: stri
 }
 
 // Send invitation email
-export async function sendInvitationEmail(invitee: { sn: string; name: string; email: string; email_invite_flag?: boolean }): Promise<{ success: boolean; error?: string }> {
+export async function sendInvitationEmail(invitee: { sn: string; name: string; email: string; email_invite_flag?: boolean }, baseUrl?: string): Promise<{ success: boolean; error?: string }> {
   try {
+    // Use provided baseUrl or fallback to environment variable
+    const appBaseUrl = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
+    
     // Generate QR code for RSVP link
-    const rsvpLink = `${process.env.NEXTAUTH_URL}/rsvp/${invitee.sn}`;
+    const rsvpLink = `${appBaseUrl}/rsvp/${invitee.sn}`;
     const qrCodeDataURL = await generateQRCode(rsvpLink);
     
     // Generate email HTML
-    const htmlContent = generateInvitationHTML(invitee, qrCodeDataURL);
+    const htmlContent = generateInvitationHTML(invitee, qrCodeDataURL, appBaseUrl);
     
     // Email options
     const mailOptions = {
@@ -352,7 +355,7 @@ export async function sendInvitationEmail(invitee: { sn: string; name: string; e
 }
 
 // Send bulk invitations
-export async function sendBulkInvitations(invitees: Array<{ sn: string; name: string; email: string; email_invite_flag?: boolean; invitation_sent?: boolean }>): Promise<{
+export async function sendBulkInvitations(invitees: Array<{ sn: string; name: string; email: string; email_invite_flag?: boolean; invitation_sent?: boolean }>, baseUrl?: string): Promise<{
   success: number;
   failed: number;
   results: Array<{ sn: string; success: boolean; error?: string }>
@@ -363,7 +366,7 @@ export async function sendBulkInvitations(invitees: Array<{ sn: string; name: st
   
   for (const invitee of invitees) {
     if (invitee.email_invite_flag && !invitee.invitation_sent) {
-      const result = await sendInvitationEmail(invitee);
+      const result = await sendInvitationEmail(invitee, baseUrl);
       
       if (result.success) {
         successCount++;

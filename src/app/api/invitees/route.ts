@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, generateInviteeSN } from '@/lib/auth';
 import { db_operations, initDatabase } from '@/lib/database';
-import { parseCSVData, validateCSVData } from '@/lib/utils';
+import { parseCSVData, validateCSVData, getBaseUrl } from '@/lib/utils';
 
 // GET /api/invitees - Get all invitees
 export const GET = requireAuth(async () => {
@@ -60,7 +60,8 @@ export const POST = requireAuth(async (request: NextRequest) => {
         const newInvitee = await db_operations.getInviteeBySN(inviteeData.sn);
         if (newInvitee) {
           const { sendInvitationEmail } = await import('@/lib/email');
-          await sendInvitationEmail(newInvitee);
+          const baseUrl = getBaseUrl(request);
+          await sendInvitationEmail(newInvitee, baseUrl);
           await db_operations.updateInvitee(inviteeData.sn, { 
             invitation_sent: true, 
             invitation_sent_at: new Date().toISOString() 

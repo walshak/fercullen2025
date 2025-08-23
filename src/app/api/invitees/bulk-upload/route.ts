@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db_operations } from '@/lib/database';
 import { sendInvitationEmail } from '@/lib/email';
 import { generateInviteeSN } from '@/lib/auth';
+import { getBaseUrl } from '@/lib/utils';
 
 export async function POST(request: NextRequest) {
   try {
@@ -92,7 +93,8 @@ export async function POST(request: NextRequest) {
           try {
             const newInvitee = await db_operations.getInviteeBySN(sn);
             if (newInvitee) {
-              await sendInvitationEmail(newInvitee);
+              const baseUrl = getBaseUrl(request);
+              await sendInvitationEmail(newInvitee, baseUrl);
               await db_operations.updateInvitee(sn, { invitation_sent: true, invitation_sent_at: new Date().toISOString() });
             }
           } catch (emailError) {

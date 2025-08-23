@@ -202,18 +202,25 @@ export async function generateQRCodePNG(text: string, size = 300): Promise<Buffe
 }
 
 // Generate multiple QR codes for bulk download
-export async function generateBulkQRCodes(invitees: DBInvitee[]): Promise<{
+export async function generateBulkQRCodes(invitees: DBInvitee[], baseUrl?: string): Promise<{
   [key: string]: Buffer
 }> {
   const qrCodes: { [key: string]: Buffer } = {};
+  const appBaseUrl = baseUrl || process.env.NEXTAUTH_URL || 'http://localhost:3000';
   
   for (const invitee of invitees) {
-    const rsvpLink = `${process.env.NEXTAUTH_URL}/rsvp/${invitee.sn}`;
+    const rsvpLink = `${appBaseUrl}/rsvp/${invitee.sn}`;
     const qrBuffer = await generateQRCodePNG(rsvpLink);
     qrCodes[`${invitee.sn}-${invitee.name.replace(/[^a-zA-Z0-9]/g, '_')}.png`] = qrBuffer;
   }
   
   return qrCodes;
+}
+
+// Construct base URL from request object
+export function getBaseUrl(request: Request): string {
+  const url = new URL(request.url);
+  return `${url.protocol}//${url.host}`;
 }
 
 // Format phone number
