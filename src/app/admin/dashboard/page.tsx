@@ -1713,6 +1713,161 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* RSVP Search and Filter Controls */}
+            <div style={{
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+              padding: '24px',
+              borderRadius: '12px',
+              marginBottom: '30px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{ 
+                color: 'var(--text-primary)', 
+                marginTop: 0,
+                fontSize: '18px',
+                fontWeight: '600',
+                marginBottom: '20px'
+              }}>Search & Filter RSVP Responses</h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '20px', alignItems: 'end' }}>
+                {/* Search */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    value={rsvpState.searchTerm}
+                    onChange={(e) => {
+                      setRsvpState(prev => ({ ...prev, searchTerm: e.target.value }));
+                      loadRsvpData(1, e.target.value, rsvpState.sortBy, rsvpState.sortOrder, rsvpState.filter, true);
+                    }}
+                    placeholder="Search by name, email, company..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Filter */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Filter
+                  </label>
+                  <select
+                    value={rsvpState.filter}
+                    onChange={(e) => {
+                      setRsvpState(prev => ({ ...prev, filter: e.target.value }));
+                      loadRsvpData(1, rsvpState.searchTerm, rsvpState.sortBy, rsvpState.sortOrder, e.target.value, true);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="all">All Responses</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="declined">Declined</option>
+                  </select>
+                </div>
+
+                {/* Sort By */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Sort By
+                  </label>
+                  <select
+                    value={rsvpState.sortBy}
+                    onChange={(e) => {
+                      setRsvpState(prev => ({ ...prev, sortBy: e.target.value }));
+                      loadRsvpData(rsvpState.pagination.page, rsvpState.searchTerm, e.target.value, rsvpState.sortOrder, rsvpState.filter);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="updated_at">Response Date</option>
+                    <option value="name">Name</option>
+                    <option value="email">Email</option>
+                    <option value="company">Company</option>
+                    <option value="rsvp_status">Status</option>
+                  </select>
+                </div>
+
+                {/* Sort Order */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Order
+                  </label>
+                  <select
+                    value={rsvpState.sortOrder}
+                    onChange={(e) => {
+                      setRsvpState(prev => ({ ...prev, sortOrder: e.target.value as 'asc' | 'desc' }));
+                      loadRsvpData(rsvpState.pagination.page, rsvpState.searchTerm, rsvpState.sortBy, e.target.value as 'asc' | 'desc', rsvpState.filter);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {/* RSVP Responses Table */}
             <div style={{
               backgroundColor: 'var(--surface)',
@@ -1727,18 +1882,27 @@ export default function AdminDashboard() {
                 backgroundColor: 'var(--surface-secondary)'
               }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '18px', fontWeight: '600' }}>
-                  RSVP Responses
+                  RSVP Responses ({rsvpState.pagination.total})
                 </h3>
               </div>
               
-              {rsvpState.data.filter(inv => inv.rsvp_status !== 'pending').length === 0 ? (
+              {rsvpState.loading ? (
                 <div style={{ 
                   padding: '40px', 
                   textAlign: 'center', 
                   color: 'var(--text-muted)',
                   fontSize: '16px'
                 }}>
-                  No RSVP responses yet.
+                  Loading RSVP responses...
+                </div>
+              ) : rsvpState.data.length === 0 ? (
+                <div style={{ 
+                  padding: '40px', 
+                  textAlign: 'center', 
+                  color: 'var(--text-muted)',
+                  fontSize: '16px'
+                }}>
+                  No RSVP responses found.
                 </div>
               ) : (
                 <div style={{ maxHeight: '600px', overflow: 'auto' }}>
@@ -1859,6 +2023,66 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               )}
+              
+              {/* Pagination Controls for RSVP */}
+              {rsvpState.pagination.totalPages > 1 && (
+                <div style={{
+                  padding: '20px',
+                  borderTop: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface-secondary)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    Showing {((rsvpState.pagination.page - 1) * rsvpState.pagination.limit) + 1} to{' '}
+                    {Math.min(rsvpState.pagination.page * rsvpState.pagination.limit, rsvpState.pagination.total)} of{' '}
+                    {rsvpState.pagination.total} responses
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => loadRsvpData(rsvpState.pagination.page - 1)}
+                      disabled={!rsvpState.pagination.hasPrev}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: rsvpState.pagination.hasPrev ? 'var(--accent-primary)' : 'var(--surface-disabled)',
+                        color: rsvpState.pagination.hasPrev ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: rsvpState.pagination.hasPrev ? 'pointer' : 'not-allowed',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{
+                      padding: '8px 16px',
+                      backgroundColor: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      color: 'var(--text-primary)'
+                    }}>
+                      Page {rsvpState.pagination.page} of {rsvpState.pagination.totalPages}
+                    </span>
+                    <button
+                      onClick={() => loadRsvpData(rsvpState.pagination.page + 1)}
+                      disabled={!rsvpState.pagination.hasNext}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: rsvpState.pagination.hasNext ? 'var(--accent-primary)' : 'var(--surface-disabled)',
+                        color: rsvpState.pagination.hasNext ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: rsvpState.pagination.hasNext ? 'pointer' : 'not-allowed',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1921,6 +2145,162 @@ export default function AdminDashboard() {
               </div>
             )}
 
+            {/* Check-in Search and Filter Controls */}
+            <div style={{
+              backgroundColor: 'var(--surface)',
+              border: '1px solid var(--border)',
+              padding: '24px',
+              borderRadius: '12px',
+              marginBottom: '30px',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
+            }}>
+              <h3 style={{ 
+                color: 'var(--text-primary)', 
+                marginTop: 0,
+                fontSize: '18px',
+                fontWeight: '600',
+                marginBottom: '20px'
+              }}>Search & Filter Guests</h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '20px', alignItems: 'end' }}>
+                {/* Search */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    value={checkinState.searchTerm}
+                    onChange={(e) => {
+                      setCheckinState(prev => ({ ...prev, searchTerm: e.target.value }));
+                      loadCheckinData(1, e.target.value, checkinState.sortBy, checkinState.sortOrder, checkinState.filter, true);
+                    }}
+                    placeholder="Search by name, email, company..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Filter */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Filter
+                  </label>
+                  <select
+                    value={checkinState.filter}
+                    onChange={(e) => {
+                      setCheckinState(prev => ({ ...prev, filter: e.target.value }));
+                      loadCheckinData(1, checkinState.searchTerm, checkinState.sortBy, checkinState.sortOrder, e.target.value, true);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="all">All Guests</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="checked_in">Checked In</option>
+                    <option value="not_checked_in">Not Checked In</option>
+                  </select>
+                </div>
+
+                {/* Sort By */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Sort By
+                  </label>
+                  <select
+                    value={checkinState.sortBy}
+                    onChange={(e) => {
+                      setCheckinState(prev => ({ ...prev, sortBy: e.target.value }));
+                      loadCheckinData(checkinState.pagination.page, checkinState.searchTerm, e.target.value, checkinState.sortOrder, checkinState.filter);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="name">Name</option>
+                    <option value="email">Email</option>
+                    <option value="company">Company</option>
+                    <option value="checked_in_at">Check-in Time</option>
+                    <option value="rsvp_status">RSVP Status</option>
+                  </select>
+                </div>
+
+                {/* Sort Order */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Order
+                  </label>
+                  <select
+                    value={checkinState.sortOrder}
+                    onChange={(e) => {
+                      setCheckinState(prev => ({ ...prev, sortOrder: e.target.value as 'asc' | 'desc' }));
+                      loadCheckinData(checkinState.pagination.page, checkinState.searchTerm, checkinState.sortBy, e.target.value as 'asc' | 'desc', checkinState.filter);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="asc">A to Z</option>
+                    <option value="desc">Z to A</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
             {/* Check-in Table */}
             <div style={{
               backgroundColor: 'var(--surface)',
@@ -1935,18 +2315,27 @@ export default function AdminDashboard() {
                 backgroundColor: 'var(--surface-secondary)'
               }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '18px', fontWeight: '600' }}>
-                  Accepted Guests ({rsvpState.data.filter(inv => inv.rsvp_status === 'accepted').length})
+                  Accepted Guests ({checkinState.pagination.total})
                 </h3>
               </div>
               
-              {rsvpState.data.filter(inv => inv.rsvp_status === 'accepted').length === 0 ? (
+              {checkinState.loading ? (
                 <div style={{ 
                   padding: '40px', 
                   textAlign: 'center', 
                   color: 'var(--text-muted)',
                   fontSize: '16px'
                 }}>
-                  No accepted RSVPs yet.
+                  Loading guests...
+                </div>
+              ) : checkinState.data.length === 0 ? (
+                <div style={{ 
+                  padding: '40px', 
+                  textAlign: 'center', 
+                  color: 'var(--text-muted)',
+                  fontSize: '16px'
+                }}>
+                  No accepted guests found.
                 </div>
               ) : (
                 <div style={{ maxHeight: '600px', overflow: 'auto' }}>
@@ -1998,15 +2387,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rsvpState.data
-                        .filter(inv => inv.rsvp_status === 'accepted')
-                        .sort((a, b) => {
-                          // Sort by check-in status, then by name
-                          if (a.checked_in && !b.checked_in) return 1;
-                          if (!a.checked_in && b.checked_in) return -1;
-                          return a.name.localeCompare(b.name);
-                        })
-                        .map((invitee) => (
+                      {checkinState.data.map((invitee) => (
                         <tr key={invitee.id} style={{ 
                           borderBottom: '1px solid var(--border)',
                           backgroundColor: invitee.checked_in ? 'var(--success-light)' : 'transparent'
@@ -2113,6 +2494,66 @@ export default function AdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+              
+              {/* Pagination Controls for Check-in */}
+              {checkinState.pagination.totalPages > 1 && (
+                <div style={{
+                  padding: '20px',
+                  borderTop: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface-secondary)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    Showing {((checkinState.pagination.page - 1) * checkinState.pagination.limit) + 1} to{' '}
+                    {Math.min(checkinState.pagination.page * checkinState.pagination.limit, checkinState.pagination.total)} of{' '}
+                    {checkinState.pagination.total} guests
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => loadCheckinData(checkinState.pagination.page - 1)}
+                      disabled={!checkinState.pagination.hasPrev}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: checkinState.pagination.hasPrev ? 'var(--accent-primary)' : 'var(--surface-disabled)',
+                        color: checkinState.pagination.hasPrev ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: checkinState.pagination.hasPrev ? 'pointer' : 'not-allowed',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{
+                      padding: '8px 16px',
+                      backgroundColor: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      color: 'var(--text-primary)'
+                    }}>
+                      Page {checkinState.pagination.page} of {checkinState.pagination.totalPages}
+                    </span>
+                    <button
+                      onClick={() => loadCheckinData(checkinState.pagination.page + 1)}
+                      disabled={!checkinState.pagination.hasNext}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: checkinState.pagination.hasNext ? 'var(--accent-primary)' : 'var(--surface-disabled)',
+                        color: checkinState.pagination.hasNext ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: checkinState.pagination.hasNext ? 'pointer' : 'not-allowed',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
