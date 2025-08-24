@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
@@ -44,35 +44,70 @@ interface ApiStats {
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<{ id: number; username: string } | null>(null);
-  const [invitees, setInvitees] = useState<Invitee[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
-  
+
   // Loading states for different POST operations
   const [addingInvitee, setAddingInvitee] = useState(false);
   const [sendingInvitation, setSendingInvitation] = useState<number | null>(null);
   const [checkingIn, setCheckingIn] = useState<number | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  
-  // Pagination, search, sort, filter states
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0,
-    hasNext: false,
-    hasPrev: false
+  const [refreshing, setRefreshing] = useState(false);  // Separate state for each tab's list management
+  const [inviteesState, setInviteesState] = useState({
+    data: [] as Invitee[],
+    pagination: {
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrev: false
+    },
+    searchTerm: '',
+    sortBy: 'created_at',
+    sortOrder: 'desc' as 'asc' | 'desc',
+    filter: 'all',
+    loading: false
   });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [filter, setFilter] = useState('all');
-  const [loadingList, setLoadingList] = useState(false);
+
+  const [rsvpState, setRsvpState] = useState({
+    data: [] as Invitee[],
+    pagination: {
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrev: false
+    },
+    searchTerm: '',
+    sortBy: 'rsvp_submitted_at',
+    sortOrder: 'desc' as 'asc' | 'desc',
+    filter: 'all',
+    loading: false
+  });
+
+  const [checkinState, setCheckinState] = useState({
+    data: [] as Invitee[],
+    pagination: {
+      page: 1,
+      limit: 10,
+      total: 0,
+      totalPages: 0,
+      hasNext: false,
+      hasPrev: false
+    },
+    searchTerm: '',
+    sortBy: 'checked_in_at',
+    sortOrder: 'desc' as 'asc' | 'desc',
+    filter: 'accepted', // Default to accepted for check-in tab
+    loading: false
+  });
   
+  // Remove old pagination and filter states
   const [uploadResults, setUploadResults] = useState<{
     message?: string;
     results?: {
@@ -112,12 +147,18 @@ export default function AdminDashboard() {
     };
 
     initDashboard();
-  }, [router]);
+  }, []);
 
-  // Load data when active tab changes to invitees or checkin
+  // Load data when active tab changes to invitees, rsvp, or checkin
   useEffect(() => {
-    if (user && (activeTab === 'invitees' || activeTab === 'checkin')) {
-      loadInvitees();
+    if (user) {
+      if (activeTab === 'invitees') {
+        loadInvitees();
+      } else if (activeTab === 'rsvp') {
+        loadRsvpData();
+      } else if (activeTab === 'checkin') {
+        loadCheckinData();
+      }
     }
   }, [activeTab, user]);
 
@@ -132,66 +173,116 @@ export default function AdminDashboard() {
     return () => clearInterval(interval);
   }, [user]);
 
-  const loadInvitees = async (
-    page = pagination.page,
-    search = searchTerm,
-    sortByField = sortBy,
-    sortOrderValue = sortOrder,
-    filterValue = filter,
+  const loadTabData = useCallback(async (
+    tab: 'invitees' | 'rsvp' | 'checkin',
+    page?: number,
+    search?: string,
+    sortByField?: string,
+    sortOrderValue?: 'asc' | 'desc',
+    filterValue?: string,
     resetPage = false
   ) => {
-    setLoadingList(true);
+    const currentState = tab === 'invitees' ? inviteesState : 
+                        tab === 'rsvp' ? rsvpState : checkinState;
+    const setState = tab === 'invitees' ? setInviteesState : 
+                     tab === 'rsvp' ? setRsvpState : setCheckinState;
+
+    setState(prev => ({ ...prev, loading: true }));
+    
     try {
-      const actualPage = resetPage ? 1 : page;
+      const actualPage = resetPage ? 1 : (page ?? currentState.pagination.page);
+      const actualSearch = search ?? currentState.searchTerm;
+      const actualSortBy = sortByField ?? currentState.sortBy;
+      const actualSortOrder = sortOrderValue ?? currentState.sortOrder;
+      const actualFilter = filterValue ?? currentState.filter;
+
       const params = new URLSearchParams({
         page: actualPage.toString(),
-        limit: pagination.limit.toString(),
-        search,
-        sortBy: sortByField,
-        sortOrder: sortOrderValue,
-        filter: filterValue
+        limit: currentState.pagination.limit.toString(),
+        search: actualSearch,
+        sortBy: actualSortBy,
+        sortOrder: actualSortOrder,
+        filter: actualFilter
       });
 
       const response = await fetch(`/api/invitees?${params}`);
       if (response.ok) {
         const data = await response.json();
-        setInvitees(data.data || []);
-        setPagination(data.pagination || {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false
-        });
+        setState(prev => ({
+          ...prev,
+          data: data.data || [],
+          pagination: data.pagination || {
+            page: 1,
+            limit: 10,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false
+          },
+          searchTerm: actualSearch,
+          sortBy: actualSortBy,
+          sortOrder: actualSortOrder,
+          filter: actualFilter
+        }));
       }
     } catch (error) {
-      console.error('Error loading invitees:', error);
+      console.error(`Error loading ${tab} data:`, error);
     } finally {
-      setLoadingList(false);
+      setState(prev => ({ ...prev, loading: false }));
     }
-  };
+  }, [inviteesState, rsvpState, checkinState, setInviteesState, setRsvpState, setCheckinState]);
 
-  const loadStats = async () => {
+  const loadInvitees = useCallback(async (
+    page = inviteesState.pagination.page,
+    search = inviteesState.searchTerm,
+    sortByField = inviteesState.sortBy,
+    sortOrderValue = inviteesState.sortOrder,
+    filterValue = inviteesState.filter,
+    resetPage = false
+  ) => {
+    return loadTabData('invitees', page, search, sortByField, sortOrderValue, filterValue, resetPage);
+  }, [inviteesState, loadTabData]);
+
+  const loadRsvpData = useCallback(async (
+    page = rsvpState.pagination.page,
+    search = rsvpState.searchTerm,
+    sortByField = rsvpState.sortBy,
+    sortOrderValue = rsvpState.sortOrder,
+    filterValue = rsvpState.filter,
+    resetPage = false
+  ) => {
+    return loadTabData('rsvp', page, search, sortByField, sortOrderValue, filterValue, resetPage);
+  }, [rsvpState, loadTabData]);
+
+  const loadCheckinData = useCallback(async (
+    page = checkinState.pagination.page,
+    search = checkinState.searchTerm,
+    sortByField = checkinState.sortBy,
+    sortOrderValue = checkinState.sortOrder,
+    filterValue = checkinState.filter,
+    resetPage = false
+  ) => {
+    return loadTabData('checkin', page, search, sortByField, sortOrderValue, filterValue, resetPage);
+  }, [checkinState, loadTabData]);
+
+  const loadStats = useCallback(async () => {
     try {
-      const [inviteesRes, statsRes] = await Promise.all([
-        fetch('/api/invitees'),
+      const [statsRes] = await Promise.all([
         fetch('/api/stats')
       ]);
       
-      let currentInvitees: Invitee[] = [];
-      if (inviteesRes.ok) {
-        const inviteesData = await inviteesRes.json();
-        currentInvitees = inviteesData.data || [];
-      }
-
       if (statsRes.ok) {
         const statsData = await statsRes.json();
         const apiStats: ApiStats = statsData.data;
         
-        // Calculate declined from invitees data
-        const declinedCount = currentInvitees.filter(inv => inv.rsvp_status === 'declined').length;
-        const totalRSVPCount = currentInvitees.filter(inv => inv.rsvp_status && inv.rsvp_status !== 'pending').length;
+        // Calculate declined from current loaded data based on active tab
+        const allInvitees = [...inviteesState.data, ...rsvpState.data, ...checkinState.data];
+        // Remove duplicates by ID
+        const uniqueInvitees = allInvitees.filter((inv, index, self) => 
+          index === self.findIndex(i => i.id === inv.id)
+        );
+        const declinedCount = uniqueInvitees.filter(inv => inv.rsvp_status === 'declined').length;
+        const totalRSVPCount = uniqueInvitees.filter(inv => inv.rsvp_status && inv.rsvp_status !== 'pending').length;
         
         // Map API response to expected format
         const mappedStats: Stats = {
@@ -208,9 +299,9 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error loading stats:', error);
     }
-  };
+  }, [inviteesState.data, rsvpState.data, checkinState.data]);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       await Promise.all([
         loadInvitees(),
@@ -221,7 +312,7 @@ export default function AdminDashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [loadInvitees, loadStats]);
 
   const handleLogout = async () => {
     try {
@@ -789,10 +880,10 @@ export default function AdminDashboard() {
                   </label>
                   <input
                     type="text"
-                    value={searchTerm}
+                    value={inviteesState.searchTerm}
                     onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      loadInvitees(1, e.target.value, sortBy, sortOrder, filter, true);
+                      setInviteesState(prev => ({ ...prev, searchTerm: e.target.value }));
+                      loadInvitees(1, e.target.value, inviteesState.sortBy, inviteesState.sortOrder, inviteesState.filter, true);
                     }}
                     placeholder="Search by name, email, company..."
                     style={{
@@ -820,10 +911,10 @@ export default function AdminDashboard() {
                     Filter
                   </label>
                   <select
-                    value={filter}
+                    value={inviteesState.filter}
                     onChange={(e) => {
-                      setFilter(e.target.value);
-                      loadInvitees(1, searchTerm, sortBy, sortOrder, e.target.value, true);
+                      setInviteesState(prev => ({ ...prev, filter: e.target.value }));
+                      loadInvitees(1, inviteesState.searchTerm, inviteesState.sortBy, inviteesState.sortOrder, e.target.value, true);
                     }}
                     style={{
                       width: '100%',
@@ -858,10 +949,10 @@ export default function AdminDashboard() {
                     Sort By
                   </label>
                   <select
-                    value={sortBy}
+                    value={inviteesState.sortBy}
                     onChange={(e) => {
-                      setSortBy(e.target.value);
-                      loadInvitees(pagination.page, searchTerm, e.target.value, sortOrder, filter);
+                      setInviteesState(prev => ({ ...prev, sortBy: e.target.value }));
+                      loadInvitees(inviteesState.pagination.page, inviteesState.searchTerm, e.target.value, inviteesState.sortOrder, inviteesState.filter);
                     }}
                     style={{
                       width: '100%',
@@ -895,10 +986,10 @@ export default function AdminDashboard() {
                     Order
                   </label>
                   <select
-                    value={sortOrder}
+                    value={inviteesState.sortOrder}
                     onChange={(e) => {
-                      setSortOrder(e.target.value as 'asc' | 'desc');
-                      loadInvitees(pagination.page, searchTerm, sortBy, e.target.value as 'asc' | 'desc', filter);
+                      setInviteesState(prev => ({ ...prev, sortOrder: e.target.value as 'asc' | 'desc' }));
+                      loadInvitees(inviteesState.pagination.page, inviteesState.searchTerm, inviteesState.sortBy, e.target.value as 'asc' | 'desc', inviteesState.filter);
                     }}
                     style={{
                       width: '100%',
@@ -1308,10 +1399,19 @@ export default function AdminDashboard() {
                 backgroundColor: 'var(--surface-secondary)'
               }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '18px', fontWeight: '600' }}>
-                  Invitees ({invitees.length})
+                  Invitees ({inviteesState.pagination.total})
                 </h3>
               </div>
-              {invitees.length === 0 ? (
+              {inviteesState.loading ? (
+                <div style={{ 
+                  padding: '40px', 
+                  textAlign: 'center', 
+                  color: 'var(--text-muted)',
+                  fontSize: '16px'
+                }}>
+                  Loading invitees...
+                </div>
+              ) : inviteesState.data.length === 0 ? (
                 <div style={{ 
                   padding: '40px', 
                   textAlign: 'center', 
@@ -1370,7 +1470,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {invitees.map((invitee) => (
+                      {inviteesState.data.map((invitee) => (
                         <tr key={invitee.id} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '12px', color: 'var(--text-primary)' }}>
                             <div style={{ 
@@ -1491,6 +1591,66 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               )}
+              
+              {/* Pagination Controls for Invitees */}
+              {inviteesState.pagination.totalPages > 1 && (
+                <div style={{
+                  padding: '20px',
+                  borderTop: '1px solid var(--border)',
+                  backgroundColor: 'var(--surface-secondary)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    Showing {((inviteesState.pagination.page - 1) * inviteesState.pagination.limit) + 1} to{' '}
+                    {Math.min(inviteesState.pagination.page * inviteesState.pagination.limit, inviteesState.pagination.total)} of{' '}
+                    {inviteesState.pagination.total} invitees
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      onClick={() => loadInvitees(inviteesState.pagination.page - 1)}
+                      disabled={!inviteesState.pagination.hasPrev}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: inviteesState.pagination.hasPrev ? 'var(--accent-primary)' : 'var(--surface-disabled)',
+                        color: inviteesState.pagination.hasPrev ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: inviteesState.pagination.hasPrev ? 'pointer' : 'not-allowed',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Previous
+                    </button>
+                    <span style={{
+                      padding: '8px 16px',
+                      backgroundColor: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      color: 'var(--text-primary)'
+                    }}>
+                      Page {inviteesState.pagination.page} of {inviteesState.pagination.totalPages}
+                    </span>
+                    <button
+                      onClick={() => loadInvitees(inviteesState.pagination.page + 1)}
+                      disabled={!inviteesState.pagination.hasNext}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: inviteesState.pagination.hasNext ? 'var(--accent-primary)' : 'var(--surface-disabled)',
+                        color: inviteesState.pagination.hasNext ? 'white' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: inviteesState.pagination.hasNext ? 'pointer' : 'not-allowed',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1571,7 +1731,7 @@ export default function AdminDashboard() {
                 </h3>
               </div>
               
-              {invitees.filter(inv => inv.rsvp_status !== 'pending').length === 0 ? (
+              {rsvpState.data.filter(inv => inv.rsvp_status !== 'pending').length === 0 ? (
                 <div style={{ 
                   padding: '40px', 
                   textAlign: 'center', 
@@ -1637,7 +1797,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {invitees
+                      {rsvpState.data
                         .filter(inv => inv.rsvp_status !== 'pending')
                         .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
                         .map((invitee) => (
@@ -1775,11 +1935,11 @@ export default function AdminDashboard() {
                 backgroundColor: 'var(--surface-secondary)'
               }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '18px', fontWeight: '600' }}>
-                  Accepted Guests ({invitees.filter(inv => inv.rsvp_status === 'accepted').length})
+                  Accepted Guests ({rsvpState.data.filter(inv => inv.rsvp_status === 'accepted').length})
                 </h3>
               </div>
               
-              {invitees.filter(inv => inv.rsvp_status === 'accepted').length === 0 ? (
+              {rsvpState.data.filter(inv => inv.rsvp_status === 'accepted').length === 0 ? (
                 <div style={{ 
                   padding: '40px', 
                   textAlign: 'center', 
@@ -1838,7 +1998,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {invitees
+                      {rsvpState.data
                         .filter(inv => inv.rsvp_status === 'accepted')
                         .sort((a, b) => {
                           // Sort by check-in status, then by name
