@@ -58,6 +58,21 @@ export default function AdminDashboard() {
   const [checkingIn, setCheckingIn] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   
+  // Pagination, search, sort, filter states
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false
+  });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filter, setFilter] = useState('all');
+  const [loadingList, setLoadingList] = useState(false);
+  
   const [uploadResults, setUploadResults] = useState<{
     message?: string;
     results?: {
@@ -99,6 +114,13 @@ export default function AdminDashboard() {
     initDashboard();
   }, [router]);
 
+  // Load data when active tab changes to invitees or checkin
+  useEffect(() => {
+    if (user && (activeTab === 'invitees' || activeTab === 'checkin')) {
+      loadInvitees();
+    }
+  }, [activeTab, user]);
+
   // Auto-refresh stats every 30 seconds
   useEffect(() => {
     if (!user) return;
@@ -109,6 +131,46 @@ export default function AdminDashboard() {
 
     return () => clearInterval(interval);
   }, [user]);
+
+  const loadInvitees = async (
+    page = pagination.page,
+    search = searchTerm,
+    sortByField = sortBy,
+    sortOrderValue = sortOrder,
+    filterValue = filter,
+    resetPage = false
+  ) => {
+    setLoadingList(true);
+    try {
+      const actualPage = resetPage ? 1 : page;
+      const params = new URLSearchParams({
+        page: actualPage.toString(),
+        limit: pagination.limit.toString(),
+        search,
+        sortBy: sortByField,
+        sortOrder: sortOrderValue,
+        filter: filterValue
+      });
+
+      const response = await fetch(`/api/invitees?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setInvitees(data.data || []);
+        setPagination(data.pagination || {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false
+        });
+      }
+    } catch (error) {
+      console.error('Error loading invitees:', error);
+    } finally {
+      setLoadingList(false);
+    }
+  };
 
   const loadStats = async () => {
     try {
@@ -150,38 +212,10 @@ export default function AdminDashboard() {
 
   const loadData = async () => {
     try {
-      const [inviteesRes, statsRes] = await Promise.all([
-        fetch('/api/invitees'),
-        fetch('/api/stats')
+      await Promise.all([
+        loadInvitees(),
+        loadStats()
       ]);
-
-      let loadedInvitees: Invitee[] = [];
-      if (inviteesRes.ok) {
-        const inviteesData = await inviteesRes.json();
-        loadedInvitees = inviteesData.data || [];
-        setInvitees(loadedInvitees);
-      }
-
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        const apiStats: ApiStats = statsData.data;
-        
-        // Calculate declined from invitees data
-        const declinedCount = loadedInvitees.filter(inv => inv.rsvp_status === 'declined').length;
-        const totalRSVPCount = loadedInvitees.filter(inv => inv.rsvp_status && inv.rsvp_status !== 'pending').length;
-        
-        // Map API response to expected format
-        const mappedStats: Stats = {
-          totalInvitees: apiStats.total_invitees || 0,
-          totalSent: apiStats.sent_invitations || 0,
-          totalRSVP: totalRSVPCount,
-          totalAccepted: apiStats.accepted_rsvps || 0,
-          totalDeclined: declinedCount,
-          totalCheckedIn: apiStats.checked_in_guests || 0
-        };
-        
-        setStats(mappedStats);
-      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -725,6 +759,162 @@ export default function AdminDashboard() {
                 >
                   Add Invitee
                 </button>
+              </div>
+            </div>
+
+            {/* Search, Filter, and Sort Controls */}
+            <div style={{
+              backgroundColor: 'var(--surface)',
+              padding: '20px',
+              borderRadius: '12px',
+              marginBottom: '20px',
+              border: '1px solid var(--border)'
+            }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 1fr 1fr',
+                gap: '16px',
+                alignItems: 'end'
+              }}>
+                {/* Search */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Search
+                  </label>
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      loadInvitees(1, e.target.value, sortBy, sortOrder, filter, true);
+                    }}
+                    placeholder="Search by name, email, company..."
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* Filter */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Filter
+                  </label>
+                  <select
+                    value={filter}
+                    onChange={(e) => {
+                      setFilter(e.target.value);
+                      loadInvitees(1, searchTerm, sortBy, sortOrder, e.target.value, true);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="all">All Invitees</option>
+                    <option value="sent">Invitations Sent</option>
+                    <option value="not_sent">Not Sent</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="declined">Declined</option>
+                    <option value="pending_rsvp">Pending RSVP</option>
+                    <option value="checked_in">Checked In</option>
+                  </select>
+                </div>
+
+                {/* Sort By */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Sort By
+                  </label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => {
+                      setSortBy(e.target.value);
+                      loadInvitees(pagination.page, searchTerm, e.target.value, sortOrder, filter);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="created_at">Date Added</option>
+                    <option value="name">Name</option>
+                    <option value="email">Email</option>
+                    <option value="company">Company</option>
+                    <option value="rsvp_status">RSVP Status</option>
+                    <option value="invitation_sent_at">Invitation Date</option>
+                  </select>
+                </div>
+
+                {/* Sort Order */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    fontWeight: '600',
+                    color: 'var(--text-secondary)',
+                    fontSize: '14px'
+                  }}>
+                    Order
+                  </label>
+                  <select
+                    value={sortOrder}
+                    onChange={(e) => {
+                      setSortOrder(e.target.value as 'asc' | 'desc');
+                      loadInvitees(pagination.page, searchTerm, sortBy, e.target.value as 'asc' | 'desc', filter);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid var(--border)',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      backgroundColor: 'var(--surface-secondary)',
+                      color: 'var(--text-primary)',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="desc">Newest First</option>
+                    <option value="asc">Oldest First</option>
+                  </select>
+                </div>
               </div>
             </div>
 

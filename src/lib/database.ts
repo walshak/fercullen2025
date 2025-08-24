@@ -130,6 +130,27 @@ class MongoDatabase {
     return await collection.find({}).toArray() as unknown as Invitee[];
   }
 
+  async getInviteesWithPagination(
+    searchCriteria: Record<string, unknown>,
+    sortCriteria: Record<string, 1 | -1>,
+    limit: number,
+    skip: number
+  ): Promise<{ invitees: Invitee[]; total: number }> {
+    const collection = await this.getCollection('invitees');
+    
+    const [invitees, total] = await Promise.all([
+      collection
+        .find(searchCriteria)
+        .sort(sortCriteria)
+        .skip(skip)
+        .limit(limit)
+        .toArray() as unknown as Promise<Invitee[]>,
+      collection.countDocuments(searchCriteria)
+    ]);
+
+    return { invitees, total };
+  }
+
   async getInviteeBySn(sn: string): Promise<Invitee | null> {
     const collection = await this.getCollection('invitees');
     return await collection.findOne({ sn }) as unknown as Invitee | null;
@@ -282,6 +303,12 @@ export const db_operations = {
 
   // Invitee operations
   getAllInvitees: () => mongoDb.getAllInvitees(),
+  getInviteesWithPagination: (
+    searchCriteria: Record<string, unknown>,
+    sortCriteria: Record<string, 1 | -1>,
+    limit: number,
+    skip: number
+  ) => mongoDb.getInviteesWithPagination(searchCriteria, sortCriteria, limit, skip),
   getInviteeBySn: (sn: string) => mongoDb.getInviteeBySn(sn),
   getInviteeById: (id: number) => mongoDb.getInviteeById(id),
   createInvitee: (inviteeData: Omit<Invitee, 'id' | 'created_at' | 'updated_at'>) => mongoDb.createInvitee(inviteeData),

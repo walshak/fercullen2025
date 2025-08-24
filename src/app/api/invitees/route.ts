@@ -3,14 +3,89 @@ import { requireAuth, generateInviteeSN } from '@/lib/auth';
 import { db_operations } from '@/lib/database';
 import { parseCSVData, validateCSVData, getBaseUrl } from '@/lib/utils';
 
-// GET /api/invitees - Get all invitees
-export const GET = requireAuth(async () => {
+// GET /api/invitees - Get invitees with pagination, search, sort, filter
+export const GET = requireAuth(async (request: NextRequest) => {
   try {
-    const invitees = await db_operations.getAllInvitees();
+    const url = new URL(request.url);
+    
+    // Parse query parameters
+    const page = parseInt(url.searchParams.get('page') || '1');
+    const limit = parseInt(url.searchParams.get('limit') || '10');
+    const search = url.searchParams.get('search') || '';
+    const sortBy = url.searchParams.get('sortBy') || 'created_at';
+    const sortOrder = url.searchParams.get('sortOrder') || 'desc';
+    const filter = url.searchParams.get('filter') || 'all'; // all, sent, not_sent, accepted, declined, checked_in
+    
+    // Calculate skip for pagination
+    const skip = (page - 1) * limit;
+    
+    // Build search criteria
+    const searchCriteria: Record<string, unknown> = {};
+    
+    if (search) {
+      searchCriteria.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { company: { $regex: search, $options: 'i' } },
+        { title: { $regex: search, $options: 'i' } },
+        { sn: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Apply filters
+    switch (filter) {
+      case 'sent':
+        searchCriteria.invitation_sent = true;
+        break;
+      case 'not_sent':
+        searchCriteria.invitation_sent = false;
+        break;
+      case 'accepted':
+        searchCriteria.rsvp_status = 'accepted';
+        break;
+      case 'declined':
+        searchCriteria.rsvp_status = 'declined';
+        break;
+      case 'checked_in':
+        searchCriteria.checked_in = true;
+        break;
+      case 'pending_rsvp':
+        searchCriteria.$or = [
+          { rsvp_status: 'pending' },
+          { rsvp_status: { $exists: false } },
+          { rsvp_status: '' }
+        ];
+        break;
+    }
+    
+    // Build sort criteria
+    const sortCriteria: Record<string, 1 | -1> = {};
+    sortCriteria[sortBy] = sortOrder === 'asc' ? 1 : -1;
+    
+    const result = await db_operations.getInviteesWithPagination(
+      searchCriteria,
+      sortCriteria,
+      limit,
+      skip
+    );
     
     return NextResponse.json({
       success: true,
-      data: invitees
+      data: result.invitees,
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / limit),
+        hasNext: page < Math.ceil(result.total / limit),
+        hasPrev: page > 1
+      },
+      filters: {
+        search,
+        sortBy,
+        sortOrder,
+        filter
+      }
     });
   } catch (error) {
     console.error('Error fetching invitees:', error);
