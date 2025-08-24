@@ -34,6 +34,14 @@ interface Stats {
   totalCheckedIn: number;
 }
 
+interface ApiStats {
+  total_invitees: number;
+  sent_invitations: number;
+  accepted_rsvps: number;
+  checked_in_guests: number;
+  total_logs: number;
+}
+
 export default function AdminDashboard() {
   const [user, setUser] = useState<{ id: number; username: string } | null>(null);
   const [invitees, setInvitees] = useState<Invitee[]>([]);
@@ -43,6 +51,13 @@ export default function AdminDashboard() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [uploading, setUploading] = useState(false);
+  
+  // Loading states for different POST operations
+  const [addingInvitee, setAddingInvitee] = useState(false);
+  const [sendingInvitation, setSendingInvitation] = useState<number | null>(null);
+  const [checkingIn, setCheckingIn] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  
   const [uploadResults, setUploadResults] = useState<{
     message?: string;
     results?: {
@@ -84,6 +99,55 @@ export default function AdminDashboard() {
     initDashboard();
   }, [router]);
 
+  // Auto-refresh stats every 30 seconds
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(() => {
+      loadStats();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  const loadStats = async () => {
+    try {
+      const [inviteesRes, statsRes] = await Promise.all([
+        fetch('/api/invitees'),
+        fetch('/api/stats')
+      ]);
+      
+      let currentInvitees: Invitee[] = [];
+      if (inviteesRes.ok) {
+        const inviteesData = await inviteesRes.json();
+        currentInvitees = inviteesData.data || [];
+      }
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        const apiStats: ApiStats = statsData.data;
+        
+        // Calculate declined from invitees data
+        const declinedCount = currentInvitees.filter(inv => inv.rsvp_status === 'declined').length;
+        const totalRSVPCount = currentInvitees.filter(inv => inv.rsvp_status && inv.rsvp_status !== 'pending').length;
+        
+        // Map API response to expected format
+        const mappedStats: Stats = {
+          totalInvitees: apiStats.total_invitees || 0,
+          totalSent: apiStats.sent_invitations || 0,
+          totalRSVP: totalRSVPCount,
+          totalAccepted: apiStats.accepted_rsvps || 0,
+          totalDeclined: declinedCount,
+          totalCheckedIn: apiStats.checked_in_guests || 0
+        };
+        
+        setStats(mappedStats);
+      }
+    } catch (error) {
+      console.error('Error loading stats:', error);
+    }
+  };
+
   const loadData = async () => {
     try {
       const [inviteesRes, statsRes] = await Promise.all([
@@ -91,14 +155,32 @@ export default function AdminDashboard() {
         fetch('/api/stats')
       ]);
 
+      let loadedInvitees: Invitee[] = [];
       if (inviteesRes.ok) {
         const inviteesData = await inviteesRes.json();
-        setInvitees(inviteesData.data || []);
+        loadedInvitees = inviteesData.data || [];
+        setInvitees(loadedInvitees);
       }
 
       if (statsRes.ok) {
         const statsData = await statsRes.json();
-        setStats(statsData.data);
+        const apiStats: ApiStats = statsData.data;
+        
+        // Calculate declined from invitees data
+        const declinedCount = loadedInvitees.filter(inv => inv.rsvp_status === 'declined').length;
+        const totalRSVPCount = loadedInvitees.filter(inv => inv.rsvp_status && inv.rsvp_status !== 'pending').length;
+        
+        // Map API response to expected format
+        const mappedStats: Stats = {
+          totalInvitees: apiStats.total_invitees || 0,
+          totalSent: apiStats.sent_invitations || 0,
+          totalRSVP: totalRSVPCount,
+          totalAccepted: apiStats.accepted_rsvps || 0,
+          totalDeclined: declinedCount,
+          totalCheckedIn: apiStats.checked_in_guests || 0
+        };
+        
+        setStats(mappedStats);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -118,6 +200,7 @@ export default function AdminDashboard() {
 
   const handleAddInvitee = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAddingInvitee(true);
     try {
       const response = await fetch('/api/invitees', {
         method: 'POST',
@@ -136,7 +219,7 @@ export default function AdminDashboard() {
           email_invite_flag: true
         });
         setShowAddForm(false);
-        loadData(); // Reload data
+        await loadData(); // Reload data and stats
       } else {
         const error = await response.json();
         alert(`Error: ${error.error}`);
@@ -144,6 +227,8 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Error adding invitee:', error);
       alert('Network error. Please try again.');
+    } finally {
+      setAddingInvitee(false);
     }
   };
 
@@ -184,7 +269,7 @@ export default function AdminDashboard() {
 
       const result = await response.json();
       setUploadResults(result);
-      loadData(); // Reload data
+      await loadData(); // Reload data and stats
     } catch (error) {
       console.error('Upload error:', error);
       alert('Upload failed. Please try again.');
@@ -216,6 +301,7 @@ export default function AdminDashboard() {
   };
 
   const sendInvitation = async (invitee: Invitee) => {
+    setSendingInvitation(invitee.id);
     try {
       const response = await fetch(`/api/invitees/${invitee.id}/send-invite`, {
         method: 'POST'
@@ -224,7 +310,7 @@ export default function AdminDashboard() {
       if (response.ok) {
         const result = await response.json();
         alert(result.message);
-        loadData(); // Reload to update status
+        await loadData(); // Reload to update status and stats
       } else {
         const error = await response.json();
         alert(`Failed to send invitation: ${error.error}`);
@@ -232,10 +318,13 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Send invitation error:', error);
       alert('Failed to send invitation');
+    } finally {
+      setSendingInvitation(null);
     }
   };
 
   const checkInInvitee = async (invitee: Invitee) => {
+    setCheckingIn(invitee.id);
     try {
       const response = await fetch(`/api/invitees/${invitee.id}/checkin`, {
         method: 'POST'
@@ -243,7 +332,7 @@ export default function AdminDashboard() {
       
       if (response.ok) {
         alert(`${invitee.name} checked in successfully`);
-        loadData(); // Reload to update status
+        await loadData(); // Reload to update status and stats
       } else {
         const error = await response.json();
         alert(`Failed to check in: ${error.error}`);
@@ -251,6 +340,8 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Check-in error:', error);
       alert('Failed to check in invitee');
+    } finally {
+      setCheckingIn(null);
     }
   };
 
@@ -339,6 +430,41 @@ export default function AdminDashboard() {
             color: 'var(--text-secondary)',
             fontSize: '14px'
           }}>Welcome, {user?.username}</span>
+          <button
+            onClick={async () => {
+              setRefreshing(true);
+              try {
+                await loadData();
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+            disabled={refreshing}
+            style={{
+              backgroundColor: refreshing ? 'var(--border)' : 'var(--info)',
+              color: 'white',
+              border: 'none',
+              padding: '10px 16px',
+              borderRadius: '6px',
+              cursor: refreshing ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+              transition: 'all 0.2s',
+              opacity: refreshing ? 0.7 : 1
+            }}
+            onMouseEnter={(e) => {
+              if (!refreshing) {
+                e.currentTarget.style.backgroundColor = 'var(--info-hover)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!refreshing) {
+                e.currentTarget.style.backgroundColor = 'var(--info)';
+              }
+            }}
+          >
+            {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+          </button>
           <button
             onClick={handleLogout}
             style={{
@@ -760,6 +886,7 @@ export default function AdminDashboard() {
                         name="name"
                         value={formData.name}
                         onChange={handleInputChange}
+                        disabled={addingInvitee}
                         required
                         style={{
                           width: '100%',
@@ -768,10 +895,12 @@ export default function AdminDashboard() {
                           borderRadius: '8px',
                           fontSize: '16px',
                           boxSizing: 'border-box',
-                          backgroundColor: 'var(--surface-secondary)',
+                          backgroundColor: addingInvitee ? 'var(--border)' : 'var(--surface-secondary)',
                           color: 'var(--text-primary)',
                           outline: 'none',
-                          transition: 'border-color 0.2s, box-shadow 0.2s'
+                          transition: 'border-color 0.2s, box-shadow 0.2s',
+                          opacity: addingInvitee ? 0.6 : 1,
+                          cursor: addingInvitee ? 'not-allowed' : 'text'
                         }}
                       />
                     </div>
@@ -940,18 +1069,20 @@ export default function AdminDashboard() {
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button
                       type="submit"
+                      disabled={addingInvitee}
                       style={{
-                        backgroundColor: 'var(--accent-primary)',
+                        backgroundColor: addingInvitee ? 'var(--border)' : 'var(--accent-primary)',
                         color: 'var(--primary-dark)',
                         border: 'none',
                         padding: '12px 24px',
                         borderRadius: '6px',
                         fontSize: '16px',
                         fontWeight: '600',
-                        cursor: 'pointer'
+                        cursor: addingInvitee ? 'not-allowed' : 'pointer',
+                        opacity: addingInvitee ? 0.7 : 1
                       }}
                     >
-                      Add Invitee
+                      {addingInvitee ? 'Adding...' : 'Add Invitee'}
                     </button>
                     <button
                       type="button"
@@ -1110,37 +1241,44 @@ export default function AdminDashboard() {
                               </button>
                               <button
                                 onClick={() => sendInvitation(invitee)}
+                                disabled={sendingInvitation === invitee.id}
                                 style={{
-                                  backgroundColor: 'var(--info)',
+                                  backgroundColor: sendingInvitation === invitee.id ? 'var(--border)' : 'var(--info)',
                                   color: 'white',
                                   border: 'none',
                                   padding: '6px 12px',
                                   borderRadius: '4px',
                                   fontSize: '12px',
-                                  cursor: 'pointer',
+                                  cursor: sendingInvitation === invitee.id ? 'not-allowed' : 'pointer',
                                   fontWeight: '500',
-                                  marginRight: '8px'
+                                  marginRight: '8px',
+                                  opacity: sendingInvitation === invitee.id ? 0.7 : 1
                                 }}
                                 title={invitee.invitation_sent ? "Resend Email Invitation" : "Send Email Invitation"}
                               >
-                                {invitee.invitation_sent ? 'Resend Invite' : 'Send Invite'}
+                                {sendingInvitation === invitee.id 
+                                  ? 'Sending...' 
+                                  : (invitee.invitation_sent ? 'Resend Invite' : 'Send Invite')
+                                }
                               </button>
                               {!invitee.checked_in && invitee.rsvp_status === 'accepted' && (
                                 <button
                                   onClick={() => checkInInvitee(invitee)}
+                                  disabled={checkingIn === invitee.id}
                                   style={{
-                                    backgroundColor: 'var(--success)',
+                                    backgroundColor: checkingIn === invitee.id ? 'var(--border)' : 'var(--success)',
                                     color: 'white',
                                     border: 'none',
                                     padding: '6px 12px',
                                     borderRadius: '4px',
                                     fontSize: '12px',
-                                    cursor: 'pointer',
-                                    fontWeight: '500'
+                                    cursor: checkingIn === invitee.id ? 'not-allowed' : 'pointer',
+                                    fontWeight: '500',
+                                    opacity: checkingIn === invitee.id ? 0.7 : 1
                                   }}
                                   title="Check In"
                                 >
-                                  Check In
+                                  {checkingIn === invitee.id ? 'Checking in...' : 'Check In'}
                                 </button>
                               )}
                               {invitee.checked_in && (
@@ -1589,25 +1727,31 @@ export default function AdminDashboard() {
                             {!invitee.checked_in ? (
                               <button
                                 onClick={() => checkInInvitee(invitee)}
+                                disabled={checkingIn === invitee.id}
                                 style={{
-                                  backgroundColor: 'var(--success)',
+                                  backgroundColor: checkingIn === invitee.id ? 'var(--border)' : 'var(--success)',
                                   color: 'white',
                                   border: 'none',
                                   padding: '8px 16px',
                                   borderRadius: '6px',
                                   fontSize: '14px',
                                   fontWeight: '500',
-                                  cursor: 'pointer',
-                                  transition: 'all 0.2s'
+                                  cursor: checkingIn === invitee.id ? 'not-allowed' : 'pointer',
+                                  transition: 'all 0.2s',
+                                  opacity: checkingIn === invitee.id ? 0.7 : 1
                                 }}
                                 onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'var(--success-dark)';
+                                  if (checkingIn !== invitee.id) {
+                                    e.currentTarget.style.backgroundColor = 'var(--success-dark)';
+                                  }
                                 }}
                                 onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'var(--success)';
+                                  if (checkingIn !== invitee.id) {
+                                    e.currentTarget.style.backgroundColor = 'var(--success)';
+                                  }
                                 }}
                               >
-                                Check In
+                                {checkingIn === invitee.id ? 'Checking in...' : 'Check In'}
                               </button>
                             ) : (
                               <span style={{ color: 'var(--success)', fontSize: '14px', fontWeight: '500' }}>
