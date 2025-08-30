@@ -212,7 +212,7 @@ export const PUT = requireAuth(async (request: NextRequest) => {
           name: row.name,
           title: row.title || '',
           company: row.company || '',
-          email: row.email.toLowerCase(),
+          email: row.email?.toLowerCase() || '',
           phone: row.phone || '',
           notes: row.notes || '',
           email_invite_flag: Boolean(row.email_invite_flag),

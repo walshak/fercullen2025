@@ -10,7 +10,7 @@ interface Invitee {
   name: string;
   title?: string;
   company?: string;
-  email: string;
+  email?: string;
   phone?: string;
   notes?: string;
   email_invite_flag: boolean;
@@ -1029,7 +1029,7 @@ export default function AdminDashboard() {
                 
                 <div style={{ marginBottom: '20px' }}>
                   <p style={{ color: 'var(--text-secondary)', marginBottom: '10px' }}>
-                    Upload a CSV file with invitee information. Make sure your file includes columns: name, email, title, company, phone, notes, email_invite_flag
+                    Upload a CSV file with invitee information. Make sure your file includes columns: name (required), email, title, company, phone, notes, email_invite_flag
                   </p>
                   <button
                     onClick={downloadTemplate}
@@ -1193,14 +1193,13 @@ export default function AdminDashboard() {
                         color: 'var(--text-secondary)',
                         fontSize: '14px'
                       }}>
-                        Email *
+                        Email
                       </label>
                       <input
                         type="email"
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
-                        required
                         style={{
                           width: '100%',
                           padding: '12px 16px',
@@ -1491,7 +1490,7 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           </td>
-                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{invitee.email}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{invitee.email || '-'}</td>
                           <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{invitee.company || '-'}</td>
                           <td style={{ padding: '12px' }}>
                             <span style={{
@@ -1529,28 +1528,30 @@ export default function AdminDashboard() {
                               >
                                 QR Code
                               </button>
-                              <button
-                                onClick={() => sendInvitation(invitee)}
-                                disabled={sendingInvitation === invitee.id}
-                                style={{
-                                  backgroundColor: sendingInvitation === invitee.id ? 'var(--border)' : 'var(--info)',
-                                  color: 'white',
-                                  border: 'none',
-                                  padding: '6px 12px',
-                                  borderRadius: '4px',
-                                  fontSize: '12px',
-                                  cursor: sendingInvitation === invitee.id ? 'not-allowed' : 'pointer',
-                                  fontWeight: '500',
-                                  marginRight: '8px',
-                                  opacity: sendingInvitation === invitee.id ? 0.7 : 1
-                                }}
-                                title={invitee.invitation_sent ? "Resend Email Invitation" : "Send Email Invitation"}
-                              >
-                                {sendingInvitation === invitee.id 
-                                  ? 'Sending...' 
-                                  : (invitee.invitation_sent ? 'Resend Invite' : 'Send Invite')
-                                }
-                              </button>
+                              {invitee.email && (
+                                <button
+                                  onClick={() => sendInvitation(invitee)}
+                                  disabled={sendingInvitation === invitee.id}
+                                  style={{
+                                    backgroundColor: sendingInvitation === invitee.id ? 'var(--border)' : 'var(--info)',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '6px 12px',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: sendingInvitation === invitee.id ? 'not-allowed' : 'pointer',
+                                    fontWeight: '500',
+                                    marginRight: '8px',
+                                    opacity: sendingInvitation === invitee.id ? 0.7 : 1
+                                  }}
+                                  title={invitee.invitation_sent ? "Resend Email Invitation" : "Send Email Invitation"}
+                                >
+                                  {sendingInvitation === invitee.id 
+                                    ? 'Sending...' 
+                                    : (invitee.invitation_sent ? 'Resend Invite' : 'Send Invite')
+                                  }
+                                </button>
+                              )}
                               {!invitee.checked_in && invitee.rsvp_status === 'accepted' && (
                                 <button
                                   onClick={() => checkInInvitee(invitee)}
@@ -1985,7 +1986,7 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           </td>
-                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{invitee.email}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{invitee.email || '-'}</td>
                           <td style={{ padding: '12px' }}>
                             <span style={{
                               padding: '6px 12px',
@@ -2411,7 +2412,7 @@ export default function AdminDashboard() {
                               )}
                             </div>
                           </td>
-                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{invitee.email}</td>
+                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{invitee.email || '-'}</td>
                           <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>{invitee.company || '-'}</td>
                           <td style={{ padding: '12px' }}>
                             {invitee.checked_in ? (

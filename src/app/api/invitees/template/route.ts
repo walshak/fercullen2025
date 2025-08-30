@@ -5,8 +5,9 @@ export async function GET() {
     // CSV template with headers
     const csvTemplate = `name,email,title,company,phone,notes,email_invite_flag
 John Doe,john.doe@example.com,CEO,Example Corp,+234 123 456 7890,VIP guest,true
-Jane Smith,jane.smith@example.com,Marketing Director,Sample Inc,+234 987 654 3210,Industry partner,true
-Note: The SN (Serial Number) will be auto-generated as FQ-001 FQ-002 etc.`;
+Jane Smith,,Marketing Director,Sample Inc,+234 987 654 3210,Industry partner,false
+Mike Johnson,mike@tech.com,CTO,Tech Startup,+234 555 123 4567,Speaker,true
+Note: Only 'name' is required. Email is optional - leave blank if not available. The SN (Serial Number) will be auto-generated as FQ-001 FQ-002 etc.`;
 
     return new NextResponse(csvTemplate, {
       status: 200,

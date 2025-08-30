@@ -10,7 +10,7 @@ interface Invitee {
   name: string;
   title?: string;
   company?: string;
-  email: string;
+  email?: string;
   phone?: string;
   notes?: string;
   rsvp_status: string;

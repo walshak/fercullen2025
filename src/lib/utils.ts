@@ -7,7 +7,7 @@ export interface InviteeCSVRow {
   name: string;
   title?: string;
   company?: string;
-  email: string;
+  email?: string;
   phone?: string;
   notes?: string;
   email_invite_flag?: boolean;
@@ -20,7 +20,7 @@ export interface DBInvitee {
   name: string;
   title?: string;
   company?: string;
-  email: string;
+  email?: string;
   phone?: string;
   notes?: string;
   email_invite_flag: boolean;

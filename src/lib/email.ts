@@ -48,7 +48,7 @@ export async function generateQRCode(text: string): Promise<string> {
 }
 
 // Generate invitation email HTML with dark theme
-function generateInvitationHTML(invitee: { sn: string; name: string; email: string }, qrCodeDataURL: string, baseUrl: string): string {
+function generateInvitationHTML(invitee: { sn: string; name: string; email?: string }, qrCodeDataURL: string, baseUrl: string): string {
   const rsvpLink = `${baseUrl}/rsvp/${invitee.sn}`;
   console.log('Got data Url: '+ qrCodeDataURL.substring(0, 100));
   return `
@@ -332,10 +332,15 @@ async function verifyTransporter(retries = 3): Promise<boolean> {
 
 // Send invitation email
 export async function sendInvitationEmail(
-  invitee: { sn: string; name: string; email: string }, 
+  invitee: { sn: string; name: string; email?: string }, 
   baseUrl: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Check if email is provided
+    if (!invitee.email) {
+      throw new Error('No email address provided for invitee');
+    }
+
     // Verify transporter first
     const isVerified = await verifyTransporter();
     if (!isVerified) {
@@ -354,7 +359,7 @@ export async function sendInvitationEmail(
     // Email options
     const mailOptions = {
       from: `"Fercullen Irish Whiskey Launch" <${process.env.MAIL_FROM_ADDRESS}>`,
-      to: invitee.email,
+      to: invitee.email!,
       subject: '🥃 Exclusive Invitation: Fercullen Irish Whiskey Launch - Nigeria',
       html: htmlContent,
       attachments: [
@@ -380,7 +385,7 @@ export async function sendInvitationEmail(
     // Log successful invitation
     await db_operations.logInvitation({
       invitee_sn: invitee.sn,
-      email: invitee.email,
+      email: invitee.email!,
       status: 'sent',
       sent_at: new Date().toISOString()
     });
@@ -393,7 +398,7 @@ export async function sendInvitationEmail(
     // Log failed invitation
     await db_operations.logInvitation({
       invitee_sn: invitee.sn,
-      email: invitee.email,
+      email: invitee.email!,
       status: 'failed',
       error_message: error instanceof Error ? error.message : 'Unknown error',
       sent_at: new Date().toISOString()

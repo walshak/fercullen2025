@@ -85,7 +85,7 @@ export async function POST(
     // Log the RSVP submission
     await db_operations.logInvitation({
       invitee_sn: sn,
-      email: existingInvitee.email,
+      email: existingInvitee.email || '',
       status: `rsvp_${status}`,
       error_message: `RSVP submitted: ${status}${preferences ? `, preferences: ${preferences}` : ''}${notes ? `, notes: ${notes}` : ''}`,
       sent_at: new Date().toISOString()

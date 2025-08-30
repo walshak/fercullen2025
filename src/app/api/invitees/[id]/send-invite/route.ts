@@ -21,6 +21,13 @@ export async function POST(
       return NextResponse.json({ error: 'Invitee not found' }, { status: 404 });
     }
 
+    // Check if invitee has an email address
+    if (!invitee.email) {
+      return NextResponse.json({ 
+        error: 'Cannot send invitation: No email address for this invitee' 
+      }, { status: 400 });
+    }
+
     try {
       const baseUrl = getBaseUrl(request);
       await sendInvitationEmail(invitee, baseUrl);
