@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 interface Invitee {
@@ -21,6 +21,7 @@ interface Invitee {
 
 export default function RSVPPage() {
   const params = useParams();
+  const router = useRouter();
   const sn = params.sn as string;
   
   const [invitee, setInvitee] = useState<Invitee | null>(null);
@@ -28,12 +29,67 @@ export default function RSVPPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   
   const [rsvpData, setRsvpData] = useState({
     status: '',
     preferences: '',
     notes: ''
   });
+
+  // Check if user is admin on component mount
+  const handleAdminCheckIn = useCallback(async () => {
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`/api/invitees/${sn}/checkin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setInvitee(data.data);
+        setSuccess(true);
+        setError('');
+        
+        // Show success message for 3 seconds then redirect to admin dashboard
+        setTimeout(() => {
+          router.push('/admin/dashboard?tab=checkin');
+        }, 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to check in guest');
+      }
+    } catch (error) {
+      console.error('Check-in error:', error);
+      setError('Failed to check in guest');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [sn, router]);
+
+  useEffect(() => {
+    const checkAdminAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          setIsAdmin(true);
+          // If admin, immediately check in the guest
+          await handleAdminCheckIn();
+        }
+      } catch {
+        console.log('Not an admin user');
+        setIsAdmin(false);
+      } finally {
+        setCheckingAuth(false);
+      }
+    };
+
+    checkAdminAuth();
+  }, [handleAdminCheckIn]);
 
   const loadInvitee = useCallback(async () => {
     try {
@@ -61,10 +117,10 @@ export default function RSVPPage() {
   }, [sn]);
 
   useEffect(() => {
-    if (sn) {
+    if (sn && !checkingAuth && !isAdmin) {
       loadInvitee();
     }
-  }, [sn, loadInvitee]);
+  }, [sn, loadInvitee, checkingAuth, isAdmin]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +157,226 @@ export default function RSVPPage() {
     const { name, value } = e.target;
     setRsvpData(prev => ({ ...prev, [name]: value }));
   };
+
+  // Show loading while checking authentication or processing check-in
+  if (checkingAuth || (isAdmin && isSubmitting)) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'var(--background)',
+        color: 'var(--text-primary)',
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '24px',
+          backgroundColor: 'var(--surface)',
+          borderRadius: '12px',
+          border: '1px solid var(--border)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+        }}>
+          <div style={{
+            width: '20px',
+            height: '20px',
+            border: '2px solid var(--accent-primary)',
+            borderTop: '2px solid transparent',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <span>{isAdmin ? 'Checking in guest...' : 'Loading your invitation...'}</span>
+        </div>
+        <style jsx>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Show admin check-in success message
+  if (isAdmin && success && invitee) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'var(--background)',
+        color: 'var(--text-primary)',
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        <div style={{
+          maxWidth: '600px',
+          padding: '40px',
+          backgroundColor: 'var(--surface)',
+          borderRadius: '16px',
+          border: '1px solid var(--border)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            backgroundColor: 'var(--accent-primary)',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            fontSize: '40px'
+          }}>
+            ✓
+          </div>
+          
+          <h1 style={{
+            fontSize: '32px',
+            fontWeight: '700',
+            marginBottom: '16px',
+            color: 'var(--accent-primary)'
+          }}>
+            Guest Checked In Successfully!
+          </h1>
+          
+          <div style={{
+            padding: '24px',
+            backgroundColor: 'var(--background)',
+            borderRadius: '12px',
+            marginBottom: '24px'
+          }}>
+            <h2 style={{
+              fontSize: '24px',
+              fontWeight: '600',
+              marginBottom: '8px'
+            }}>
+              {invitee.name}
+            </h2>
+            {invitee.title && (
+              <p style={{ fontSize: '16px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                {invitee.title}
+              </p>
+            )}
+            {invitee.company && (
+              <p style={{ fontSize: '16px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                {invitee.company}
+              </p>
+            )}
+            <p style={{
+              fontSize: '14px',
+              fontWeight: '600',
+              color: 'var(--accent-primary)',
+              marginTop: '12px'
+            }}>
+              Serial Number: {invitee.sn}
+            </p>
+          </div>
+          
+          <p style={{
+            fontSize: '16px',
+            color: 'var(--text-secondary)',
+            marginBottom: '24px'
+          }}>
+            Redirecting to admin dashboard in a few seconds...
+          </p>
+          
+          <button
+            onClick={() => router.push('/admin/dashboard?tab=checkin')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: 'var(--accent-primary)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Go to Dashboard Now
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show admin error message
+  if (isAdmin && error) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'var(--background)',
+        color: 'var(--text-primary)',
+        fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        <div style={{
+          maxWidth: '500px',
+          padding: '40px',
+          backgroundColor: 'var(--surface)',
+          borderRadius: '16px',
+          border: '1px solid var(--border)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          textAlign: 'center'
+        }}>
+          <div style={{
+            width: '80px',
+            height: '80px',
+            backgroundColor: '#dc3545',
+            borderRadius: '50%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 24px',
+            fontSize: '40px',
+            color: 'white'
+          }}>
+            ✕
+          </div>
+          
+          <h1 style={{
+            fontSize: '32px',
+            fontWeight: '700',
+            marginBottom: '16px',
+            color: '#dc3545'
+          }}>
+            Check-in Failed
+          </h1>
+          
+          <p style={{
+            fontSize: '16px',
+            color: 'var(--text-secondary)',
+            marginBottom: '24px'
+          }}>
+            {error}
+          </p>
+          
+          <button
+            onClick={() => router.push('/admin/dashboard')}
+            style={{
+              padding: '12px 24px',
+              backgroundColor: 'var(--accent-primary)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: 'pointer'
+            }}
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -465,7 +741,7 @@ export default function RSVPPage() {
           fontSize: '14px'
         }}>
           <p style={{ margin: 0 }}>
-            For any questions, contact us at <span style={{ color: 'var(--accent-primary)' }}>walshak@corestream.ng</span>
+            For any questions, contact us at <span style={{ color: 'var(--accent-primary)' }}>fercullennigeria@gmail.com</span>
           </p>
         </div>
       </div>

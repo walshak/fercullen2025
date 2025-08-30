@@ -102,9 +102,9 @@ export const POST = requireAuth(async (request: NextRequest) => {
     const body = await request.json();
     
     // Validate required fields
-    if (!body.name || !body.email) {
+    if (!body.name) {
       return NextResponse.json(
-        { error: 'Name and email are required' },
+        { error: 'Name is required' },
         { status: 400 }
       );
     }
@@ -118,10 +118,10 @@ export const POST = requireAuth(async (request: NextRequest) => {
       name: body.name.trim(),
       title: body.title?.trim() || '',
       company: body.company?.trim() || '',
-      email: body.email.trim().toLowerCase(),
+      email: body.email?.trim().toLowerCase() || '',
       phone: body.phone?.trim() || '',
       notes: body.notes?.trim() || '',
-      email_invite_flag: Boolean(body.email_invite_flag),
+      email_invite_flag: Boolean(body.email_invite_flag) && Boolean(body.email?.trim()),
       invitation_sent: false,
       rsvp_status: 'pending',
       checked_in: false
@@ -130,8 +130,8 @@ export const POST = requireAuth(async (request: NextRequest) => {
     // Save to database
     await db_operations.createInvitee(inviteeData);
     
-    // Send email immediately if flagged
-    if (inviteeData.email_invite_flag) {
+    // Send email immediately if flagged and email is provided
+    if (inviteeData.email_invite_flag && inviteeData.email) {
       try {
         const newInvitee = await db_operations.getInviteeBySn(inviteeData.sn);
         if (newInvitee) {

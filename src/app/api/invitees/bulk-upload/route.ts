@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     }
 
     const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    const requiredHeaders = ['name', 'email'];
+    const requiredHeaders = ['name'];
     
     for (const required of requiredHeaders) {
       if (!headers.includes(required)) {
@@ -55,22 +55,24 @@ export async function POST(request: NextRequest) {
       });
 
       // Validate required fields
-      if (!row.name || !row.email) {
-        results.errors.push(`Row ${i + 1}: Missing name or email`);
+      if (!row.name) {
+        results.errors.push(`Row ${i + 1}: Missing name`);
         continue;
       }
 
-      // Check if email already exists
-      const allInvitees = await db_operations.getAllInvitees();
-      const existing = allInvitees.find(inv => inv.email === row.email);
-      if (existing) {
-        results.skipped++;
-        continue;
+      // Check if email already exists (only if email is provided)
+      if (row.email) {
+        const allInvitees = await db_operations.getAllInvitees();
+        const existing = allInvitees.find(inv => inv.email === row.email);
+        if (existing) {
+          results.skipped++;
+          continue;
+        }
       }
 
       try {
-        // Convert email_invite_flag to boolean
-        const emailInviteFlag = row.email_invite_flag === 'true' || row.email_invite_flag === '1';
+        // Convert email_invite_flag to boolean, but only if email is provided
+        const emailInviteFlag = (row.email_invite_flag === 'true' || row.email_invite_flag === '1') && Boolean(row.email);
         
         // Generate unique SN
         const sn = await generateInviteeSN();
@@ -78,7 +80,7 @@ export async function POST(request: NextRequest) {
         const inviteeData = {
           sn,
           name: row.name,
-          email: row.email,
+          email: row.email || '',
           title: row.title || '',
           company: row.company || '',
           phone: row.phone || '',
@@ -91,8 +93,8 @@ export async function POST(request: NextRequest) {
 
         await db_operations.createInvitee(inviteeData);
         
-        // Send email if flagged
-        if (emailInviteFlag) {
+        // Send email if flagged and email is provided
+        if (emailInviteFlag && row.email) {
           try {
             const newInvitee = await db_operations.getInviteeBySn(sn);
             if (newInvitee) {
