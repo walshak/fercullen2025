@@ -42,7 +42,7 @@ export default function RSVPPage() {
   const handleAdminCheckIn = useCallback(async () => {
     try {
       setIsSubmitting(true);
-      const response = await fetch(`/api/invitees/${sn}/checkin`, {
+      const response = await fetch(`/api/invitees/sn/${sn}/checkin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
